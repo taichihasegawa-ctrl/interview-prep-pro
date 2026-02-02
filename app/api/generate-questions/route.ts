@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { generateQuestions } from '@/lib/anthropic';
-import { saveGeneration } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: '認証が必要です。ログインしてください。' },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json();
     const {
       jobInfo,
@@ -37,14 +26,6 @@ export async function POST(req: NextRequest) {
       interviewType,
       answerLength,
     });
-
-    await saveGeneration(userId, 'questions', {
-      jobInfo,
-      resumeText,
-      questionCount,
-      interviewType,
-      answerLength,
-    }, { questions });
 
     return NextResponse.json({ questions });
 

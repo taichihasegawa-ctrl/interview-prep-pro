@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { correctDocument } from '@/lib/anthropic';
-import { saveGeneration } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: '認証が必要です。ログインしてください。' },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json();
     const { documentText, focus = 'overall' } = body;
 
@@ -28,11 +17,6 @@ export async function POST(req: NextRequest) {
       documentText,
       focus,
     });
-
-    await saveGeneration(userId, 'correction', {
-      documentText,
-      focus,
-    }, result);
 
     return NextResponse.json(result);
 
