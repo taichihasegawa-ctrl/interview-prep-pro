@@ -76,19 +76,59 @@ ${jobInfo ? `# 志望方向（参考情報）\n${jobInfo}` : ''}
       "relevantIndustries": ["業界1", "業界2"]
     }
   ],
-  "agentMapping": {
-    "primaryCategory": "メインの職種カテゴリ（IT/営業/管理/専門職/ハイクラス/未経験から選択）",
-    "experienceLevel": "経験レベル（junior/middle/senior/executiveから選択）",
-    "industryFocus": ["強みのある業界1", "強みのある業界2"],
-    "skills": ["主要スキル1", "主要スキル2", "主要スキル3"]
+  "profileSummary": {
+    "primarySkills": ["主要スキル1", "主要スキル2", "主要スキル3"],
+    "experienceYears": "経験年数の推定（例：3-5年）",
+    "jobCategory": "職種カテゴリ（エンジニア/営業/マーケティング/管理職/専門職/その他）",
+    "seniorityLevel": "シニアリティ（若手/中堅/シニア/マネジメント）",
+    "estimatedSalaryRange": "想定年収レンジ（例：500-700万円）",
+    "industryExperience": ["経験業界1", "経験業界2"],
+    "uniqueStrengths": [
+      "ユニークな強み1（具体的に）",
+      "ユニークな強み2（具体的に）",
+      "ユニークな強み3（具体的に）"
+    ],
+    "leadershipExperience": "リーダー/マネジメント経験の有無と内容",
+    "careerHighlight": "キャリアのハイライト（最もアピールできる実績）"
+  },
+  "agentMatchReasons": {
+    "itSpecialist": {
+      "applicable": true または false,
+      "reasons": [
+        "このユーザーにIT特化エージェントが合う理由1",
+        "このユーザーにIT特化エージェントが合う理由2"
+      ]
+    },
+    "highClass": {
+      "applicable": true または false,
+      "reasons": [
+        "このユーザーにハイクラスエージェントが合う理由1",
+        "このユーザーにハイクラスエージェントが合う理由2"
+      ]
+    },
+    "general": {
+      "applicable": true または false,
+      "reasons": [
+        "このユーザーに総合型エージェントが合う理由1",
+        "このユーザーに総合型エージェントが合う理由2"
+      ]
+    },
+    "youngCareer": {
+      "applicable": true または false,
+      "reasons": [
+        "このユーザーに若手向けエージェントが合う理由1",
+        "このユーザーに若手向けエージェントが合う理由2"
+      ]
+    }
   }
 }
 
-分析は建設的で、ユーザーが自身のキャリアを客観視できるような内容にしてください。`;
+分析は建設的で、ユーザーが自身のキャリアを客観視できるような内容にしてください。
+agentMatchReasonsは、ユーザーの経歴を具体的に引用して理由を書いてください。`;
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 3000,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
 
