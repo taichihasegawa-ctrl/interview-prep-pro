@@ -10,6 +10,35 @@ type CorrectionItem = { type: string; before: string; after: string; reason: str
 type CorrectionResult = { summary: string; strengths?: string[]; corrections?: CorrectionItem[]; suggestions?: string[]; };
 type PracticeFeedback = { score: number; scoreComment: string; goodPoints: string[]; improvements: string[]; improvedAnswer: string; tips: string; };
 
+type PositionAnalysis = {
+  positionReality: {
+    title: string;
+    summary: string;
+    dayInLife: string;
+    teamContext: string;
+  };
+  readBetweenLines: {
+    surface: string;
+    insight: string;
+  }[];
+  interviewFocus: {
+    whatTheyReallyWant: string;
+    keyQualities: {
+      quality: string;
+      why: string;
+    }[];
+    possibleConcerns: string;
+  };
+  yourFit?: {
+    strongConnections: {
+      yourExperience: string;
+      howItConnects: string;
+    }[];
+    gapToAddress: string;
+    interviewStrategy: string;
+  };
+};
+
 type ProfileSummary = {
   primarySkills: string[];
   experienceYears: string;
@@ -98,6 +127,10 @@ export default function Home() {
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState('');
   const [showMarketPrompt, setShowMarketPrompt] = useState(false);
+
+  const [positionAnalysis, setPositionAnalysis] = useState<PositionAnalysis | null>(null);
+  const [positionLoading, setPositionLoading] = useState(false);
+  const [positionError, setPositionError] = useState('');
 
   const sampleResume = `【学歴】
 2016年4月 - 2020年3月: 明治大学 商学部 卒業
@@ -309,6 +342,30 @@ export default function Home() {
     handleMarketEvaluation();
   };
 
+  const handlePositionAnalysis = async () => {
+    if (!jobInfo.trim()) {
+      setPositionError('求人情報を入力してください');
+      return;
+    }
+    setPositionLoading(true);
+    setPositionError('');
+    setPositionAnalysis(null);
+    try {
+      const res = await fetch('/api/position-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobInfo, resumeText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      setPositionAnalysis(data);
+    } catch (error) {
+      setPositionError(error instanceof Error ? error.message : 'エラーが発生しました');
+    } finally {
+      setPositionLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-50">
       {/* モーダル */}
@@ -357,6 +414,7 @@ export default function Home() {
           <div className="flex gap-8">
             {[
               { id: 'prepare', label: '準備' },
+              { id: 'position', label: 'ポジション分析' },
               { id: 'questions', label: '想定質問' },
               { id: 'correction', label: '添削' },
               { id: 'market', label: '市場評価' },
@@ -492,6 +550,179 @@ export default function Home() {
                 <p className="text-xs text-stone-500 mt-2">※ 求人情報を入力してください</p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ポジション分析タブ */}
+        {activeTab === 'position' && (
+          <div>
+            {!jobInfo.trim() ? (
+              <div className="py-16 text-center">
+                <p className="text-stone-500 text-sm mb-4">求人情報を入力してください</p>
+                <button
+                  onClick={() => setActiveTab('prepare')}
+                  className="text-sm text-teal-700 hover:text-teal-800 underline underline-offset-2"
+                >
+                  準備タブへ
+                </button>
+              </div>
+            ) : !positionAnalysis ? (
+              <div className="py-16 text-center">
+                {positionError && (
+                  <p className="text-sm text-red-700 mb-4">{positionError}</p>
+                )}
+                <p className="text-sm text-stone-600 mb-2">
+                  求人票の行間を読み解き、ポジションの実態を分析します
+                </p>
+                {resumeText.trim() && (
+                  <p className="text-xs text-stone-500 mb-6">
+                    あなたの経歴との接点も合わせて分析します
+                  </p>
+                )}
+                <button
+                  onClick={handlePositionAnalysis}
+                  disabled={positionLoading}
+                  className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                >
+                  {positionLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : (
+                    'ポジションを分析する'
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-10">
+
+                {/* ポジションの実態 */}
+                <section>
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">POSITION REALITY</p>
+                  <p className="text-lg font-medium text-stone-800 mb-3">{positionAnalysis.positionReality.title}</p>
+                  <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.positionReality.summary}</p>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs text-stone-500 mb-2">想定される1日の業務</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.dayInLife}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-stone-500 mb-2">チーム構成・報告ライン</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.teamContext}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 求人の行間を読む */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">READ BETWEEN THE LINES</p>
+                  <p className="text-sm text-stone-600 mb-6">求人票の表現から読み取れること</p>
+                  
+                  <div className="space-y-6">
+                    {positionAnalysis.readBetweenLines.map((item, i) => (
+                      <div key={i} className="grid grid-cols-12 gap-4">
+                        <div className="col-span-4">
+                          <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
+                          <p className="text-sm text-stone-600 italic">&ldquo;{item.surface}&rdquo;</p>
+                        </div>
+                        <div className="col-span-1 flex justify-center pt-4">
+                          <ArrowRight className="w-4 h-4 text-stone-400" />
+                        </div>
+                        <div className="col-span-7 border-l-2 border-teal-600 pl-4">
+                          <p className="text-xs text-stone-400 mb-1">読み解き</p>
+                          <p className="text-sm text-stone-700 leading-relaxed">{item.insight}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* 面接で見られるポイント */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
+                  <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.interviewFocus.whatTheyReallyWant}</p>
+                  
+                  <div className="space-y-4 mb-6">
+                    {positionAnalysis.interviewFocus.keyQualities.map((kq, i) => (
+                      <div key={i} className="flex gap-4">
+                        <span className="text-xs text-stone-400 font-mono w-6 pt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                        <div>
+                          <p className="text-sm font-medium text-stone-800">{kq.quality}</p>
+                          <p className="text-sm text-stone-600">{kq.why}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-l-2 border-amber-500 pl-4">
+                    <p className="text-xs text-stone-500 mb-1">採用側が持ちうる懸念</p>
+                    <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.interviewFocus.possibleConcerns}</p>
+                  </div>
+                </section>
+
+                {/* あなたが活かせるポイント */}
+                {positionAnalysis.yourFit && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">YOUR FIT</p>
+                    <p className="text-sm text-stone-600 mb-6">あなたの経歴とこのポジションの接点</p>
+                    
+                    <div className="space-y-6 mb-8">
+                      {positionAnalysis.yourFit.strongConnections.map((conn, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-4">
+                          <div className="col-span-4">
+                            <p className="text-xs text-stone-400 mb-1">あなたの経験</p>
+                            <p className="text-sm text-stone-700 font-medium">{conn.yourExperience}</p>
+                          </div>
+                          <div className="col-span-1 flex justify-center pt-4">
+                            <ArrowRight className="w-4 h-4 text-stone-400" />
+                          </div>
+                          <div className="col-span-7 border-l-2 border-teal-600 pl-4">
+                            <p className="text-xs text-stone-400 mb-1">このポジションでの活かし方</p>
+                            <p className="text-sm text-stone-700 leading-relaxed">{conn.howItConnects}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-l-2 border-amber-500 pl-4 mb-6">
+                      <p className="text-xs text-stone-500 mb-1">面接で補うべきポイント</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.yourFit.gapToAddress}</p>
+                    </div>
+
+                    <div className="bg-stone-100 p-4">
+                      <p className="text-xs text-stone-500 mb-2">面接戦略</p>
+                      <p className="text-sm text-stone-800 leading-relaxed">{positionAnalysis.yourFit.interviewStrategy}</p>
+                    </div>
+                  </section>
+                )}
+
+                {/* 次のステップ誘導 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
+                  <p className="text-sm text-stone-600 mb-4">分析結果をもとに、面接対策を進めましょう</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setActiveTab('questions');
+                        if (questions.length === 0) handleGenerateQuestions();
+                      }}
+                      className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
+                    >
+                      想定質問を生成
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('market')}
+                      className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors"
+                    >
+                      市場評価を見る
+                    </button>
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         )}
 
