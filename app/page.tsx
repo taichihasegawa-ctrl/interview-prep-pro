@@ -2,47 +2,87 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
-  Loader2, FileText, MessageSquare, PenTool, History, Download,
+  Loader2, FileText, MessageSquare, PenTool, Download,
   Trash2, RefreshCw, Sparkles, CheckCircle2, ArrowRight,
-  HelpCircle, Lightbulb, Mic, Play, SkipForward, Award,
-  Target, TrendingUp, ChevronRight
+  HelpCircle, Lightbulb, TrendingUp, Target, BarChart3,
+  ChevronDown, ChevronUp, ExternalLink, Briefcase, Award,
+  Zap, Users, LineChart
 } from 'lucide-react';
 
 type Question = { question: string; answer: string; category?: string; };
 type CorrectionItem = { type: string; before: string; after: string; reason: string; };
 type CorrectionResult = { summary: string; strengths?: string[]; corrections?: CorrectionItem[]; suggestions?: string[]; };
-type HistoryItem = { id: number; type: 'questions' | 'correction'; input_data: Record<string, unknown>; output_data: { questions?: Question[] } | CorrectionResult; created_at: string; };
 type PracticeFeedback = { score: number; scoreComment: string; goodPoints: string[]; improvements: string[]; improvedAnswer: string; tips: string; };
-type PracticeResult = { question: string; userAnswer: string; feedback: PracticeFeedback; };
+
+type MarketEvaluation = {
+  marketView: {
+    summary: string;
+    instantValue: string[];
+    growingDemand: string[];
+    reproducibleResults: string[];
+  };
+  strengths: {
+    execution: string;
+    continuity: string;
+    problemSolving: string;
+  };
+  growthAreas: {
+    quantification: string;
+    decisionMaking: string;
+    crossFunctional: string;
+  };
+  careerDirections: {
+    direction: string;
+    description: string;
+    relevantIndustries: string[];
+  }[];
+  agentMapping: {
+    primaryCategory: string;
+    experienceLevel: string;
+    industryFocus: string[];
+    skills: string[];
+  };
+};
+
+type Agent = {
+  id: string;
+  name: string;
+  description: string;
+  features: string[];
+  affiliateUrl: string;
+};
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('preparation');
   const [showWelcome, setShowWelcome] = useState(true);
   const [resumeText, setResumeText] = useState('');
   const [jobInfo, setJobInfo] = useState('');
-  const [motivation, setMotivation] = useState('');
   const [questionCount, setQuestionCount] = useState('7');
   const [interviewType, setInterviewType] = useState('balanced');
   const [answerLength, setAnswerLength] = useState('medium');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionError, setQuestionError] = useState('');
+  
+  // 質問ごとの回答とフィードバック
+  const [userAnswers, setUserAnswers] = useState<{[key: number]: string}>({});
+  const [feedbacks, setFeedbacks] = useState<{[key: number]: PracticeFeedback}>({});
+  const [feedbackLoading, setFeedbackLoading] = useState<{[key: number]: boolean}>({});
+  const [expandedQuestions, setExpandedQuestions] = useState<{[key: number]: boolean}>({});
+  const [showModelAnswer, setShowModelAnswer] = useState<{[key: number]: boolean}>({});
+  
+  // 添削
   const [correctionText, setCorrectionText] = useState('');
   const [correctionFocus, setCorrectionFocus] = useState('overall');
   const [correctionResult, setCorrectionResult] = useState<CorrectionResult | null>(null);
   const [correctionLoading, setCorrectionLoading] = useState(false);
   const [correctionError, setCorrectionError] = useState('');
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  // 練習モード用の状態
-  const [practiceMode, setPracticeMode] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
-  const [practiceFeedback, setPracticeFeedback] = useState<PracticeFeedback | null>(null);
-  const [practiceLoading, setPracticeLoading] = useState(false);
-  const [practiceResults, setPracticeResults] = useState<PracticeResult[]>([]);
-  const [showPracticeSummary, setShowPracticeSummary] = useState(false);
+  
+  // 市場評価
+  const [marketEvaluation, setMarketEvaluation] = useState<MarketEvaluation | null>(null);
+  const [matchedAgents, setMatchedAgents] = useState<Agent[]>([]);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState('');
 
   const sampleResume = `【学歴】
 2015年4月 - 2019年3月: 東京工業大学 情報工学部 卒業
@@ -51,64 +91,82 @@ export default function Home() {
 2019年4月 - 2022年3月: 株式会社サイバーテック
 ・Webアプリケーション開発（PHP, Laravel）
 ・ECサイトの機能追加・保守運用
+・チーム5名でのアジャイル開発経験
 
 2022年4月 - 現在: 株式会社デジタルイノベーション
 ・フロントエンド開発（React, TypeScript）
 ・新規プロダクトの設計・開発リード
-・メンバー3名の育成
+・メンバー3名の育成・コードレビュー
+・売上前年比120%達成に貢献
 
 【スキル】
-JavaScript, TypeScript, React, Node.js, AWS
+JavaScript, TypeScript, React, Node.js, AWS, Docker
 
 【資格】
 ・応用情報技術者試験 (2020年)
+・AWS Solutions Architect Associate (2023年)
 ・TOEIC 820点`;
 
   const sampleJobInfo = `【企業名】株式会社テックフューチャー
 【職種】シニアフロントエンドエンジニア
-
 【業務内容】
 ・React/Next.jsを用いたフロントエンド開発
 ・プロダクトの新機能設計・実装
 ・ジュニアエンジニアのメンタリング
-
-【必須スキル】
-・React/TypeScriptでの開発経験 3年以上
-
-【歓迎スキル】
-・Next.js での開発経験
-
+【必須スキル】React/TypeScriptでの開発経験 3年以上
+【歓迎スキル】Next.js での開発経験
 【給与】年収 650万円〜900万円`;
 
   const fillSampleData = () => { setResumeText(sampleResume); setJobInfo(sampleJobInfo); setShowWelcome(false); };
 
-  const fetchHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    try {
-      const res = await fetch('/api/history');
-      const data = await res.json();
-      if (res.ok) setHistory(data.generations || []);
-    } catch (error) { console.error('Failed to fetch history:', error); }
-    finally { setHistoryLoading(false); }
-  }, []);
-
-  useEffect(() => { if (activeTab === 'history') fetchHistory(); }, [activeTab, fetchHistory]);
-
+  // 質問生成
   const handleGenerateQuestions = async () => {
     if (!jobInfo.trim()) { setQuestionError('求人情報を入力してください'); return; }
     setQuestionLoading(true); setQuestionError(''); setQuestions([]);
+    setUserAnswers({}); setFeedbacks({}); setExpandedQuestions({}); setShowModelAnswer({});
     try {
       const res = await fetch('/api/generate-questions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobInfo, resumeText: resumeText || motivation, questionCount, interviewType, answerLength }),
+        body: JSON.stringify({ jobInfo, resumeText, questionCount, interviewType, answerLength }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
-      setQuestions(data.questions); setActiveTab('questions');
+      setQuestions(data.questions);
+      // 最初の質問を展開
+      setExpandedQuestions({ 0: true });
+      setActiveTab('questions');
     } catch (error) { setQuestionError(error instanceof Error ? error.message : 'エラーが発生しました'); }
     finally { setQuestionLoading(false); }
   };
 
+  // フィードバック取得
+  const handleGetFeedback = async (index: number) => {
+    const answer = userAnswers[index];
+    if (!answer?.trim()) return;
+    
+    setFeedbackLoading(prev => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch('/api/practice-feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: questions[index].question,
+          userAnswer: answer,
+          idealAnswer: questions[index].answer,
+          jobInfo: jobInfo,
+          resumeText: resumeText,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setFeedbacks(prev => ({ ...prev, [index]: data }));
+    } catch (error) {
+      console.error('Feedback error:', error);
+    } finally {
+      setFeedbackLoading(prev => ({ ...prev, [index]: false }));
+    }
+  };
+
+  // 添削
   const handleCorrection = async () => {
     const text = correctionText || resumeText;
     if (!text.trim()) { setCorrectionError('添削対象のテキストを入力してください'); return; }
@@ -125,97 +183,55 @@ JavaScript, TypeScript, React, Node.js, AWS
     finally { setCorrectionLoading(false); }
   };
 
-  const handleDeleteHistory = async (id: number) => {
-    if (!confirm('この履歴を削除しますか？')) return;
-    try { const res = await fetch(`/api/history?id=${id}`, { method: 'DELETE' }); if (res.ok) setHistory(history.filter(h => h.id !== id)); }
-    catch (error) { console.error('Failed to delete:', error); }
-  };
-
-  const handleLoadHistory = (item: HistoryItem) => {
-    if (item.type === 'questions') {
-      const outputData = item.output_data as { questions?: Question[] };
-      if (outputData.questions) { setQuestions(outputData.questions); setActiveTab('questions'); }
-    } else { setCorrectionResult(item.output_data as CorrectionResult); setActiveTab('correction'); }
-  };
-
-  // 練習モード開始
-  const startPractice = () => {
-    setPracticeMode(true);
-    setCurrentQuestionIndex(0);
-    setUserAnswer('');
-    setPracticeFeedback(null);
-    setPracticeResults([]);
-    setShowPracticeSummary(false);
-    setActiveTab('practice');
-  };
-
-  // 回答を送信してフィードバックを取得
-  const submitAnswer = async () => {
-    if (!userAnswer.trim()) return;
-    setPracticeLoading(true);
-    setPracticeFeedback(null);
-
+  // 市場評価
+  const handleMarketEvaluation = async () => {
+    if (!resumeText.trim()) { setMarketError('職務経歴を入力してください'); return; }
+    setMarketLoading(true); setMarketError(''); setMarketEvaluation(null); setMatchedAgents([]);
     try {
-      const currentQuestion = questions[currentQuestionIndex];
-      const res = await fetch('/api/practice-feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: currentQuestion.question,
-          userAnswer: userAnswer,
-          idealAnswer: currentQuestion.answer,
-          jobInfo: jobInfo,
-        }),
+      const res = await fetch('/api/market-evaluation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeText, jobInfo }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      setMarketEvaluation(data);
       
-      setPracticeFeedback(data);
-      setPracticeResults([...practiceResults, {
-        question: currentQuestion.question,
-        userAnswer: userAnswer,
-        feedback: data,
-      }]);
-    } catch (error) {
-      console.error('Feedback error:', error);
-      alert('フィードバックの取得に失敗しました');
-    } finally {
-      setPracticeLoading(false);
-    }
+      // エージェントマッチング（クライアントサイド）
+      const agents = await import('@/lib/agents');
+      const matched = agents.matchAgents(
+        data.agentMapping.primaryCategory,
+        data.agentMapping.experienceLevel,
+        data.agentMapping.industryFocus,
+        3
+      );
+      setMatchedAgents(matched);
+    } catch (error) { setMarketError(error instanceof Error ? error.message : 'エラーが発生しました'); }
+    finally { setMarketLoading(false); }
   };
 
-  // 次の質問へ
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setUserAnswer('');
-      setPracticeFeedback(null);
-    } else {
-      setShowPracticeSummary(true);
-    }
+  const toggleQuestion = (index: number) => {
+    setExpandedQuestions(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
-  // 練習を終了
-  const endPractice = () => {
-    setShowPracticeSummary(true);
+  const toggleModelAnswer = (index: number) => {
+    setShowModelAnswer(prev => ({ ...prev, [index]: !prev[index] }));
   };
-
-  // 練習モードを完全終了
-  const closePractice = () => {
-    setPracticeMode(false);
-    setActiveTab('questions');
-    setShowPracticeSummary(false);
-  };
-
-  // 平均スコア計算
-  const averageScore = practiceResults.length > 0 
-    ? Math.round(practiceResults.reduce((sum, r) => sum + r.feedback.score, 0) / practiceResults.length)
-    : 0;
 
   const downloadResults = () => {
     if (questions.length === 0) return;
     let text = '面接対策 - 想定質問と模範解答\n' + '='.repeat(50) + '\n\n';
-    questions.forEach((qa, i) => { text += `Q${i + 1}. ${qa.question}\n${qa.category ? `[${qa.category}]\n` : ''}\n【模範解答】\n${qa.answer}\n\n` + '-'.repeat(50) + '\n\n'; });
+    questions.forEach((qa, i) => { 
+      text += `Q${i + 1}. ${qa.question}\n`;
+      if (qa.category) text += `[${qa.category}]\n`;
+      text += `\n【模範解答】\n${qa.answer}\n`;
+      if (userAnswers[i]) text += `\n【あなたの回答】\n${userAnswers[i]}\n`;
+      if (feedbacks[i]) {
+        text += `\n【フィードバック】スコア: ${feedbacks[i].score}点\n`;
+        text += `良かった点: ${feedbacks[i].goodPoints.join(', ')}\n`;
+        text += `改善点: ${feedbacks[i].improvements.join(', ')}\n`;
+      }
+      text += '\n' + '-'.repeat(50) + '\n\n';
+    });
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '面接対策_想定質問.txt'; a.click();
   };
@@ -229,32 +245,11 @@ JavaScript, TypeScript, React, Node.js, AWS
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '添削結果.txt'; a.click();
   };
 
-  const downloadPracticeResults = () => {
-    if (practiceResults.length === 0) return;
-    let text = '面接練習結果\n' + '='.repeat(50) + '\n';
-    text += `平均スコア: ${averageScore}点\n`;
-    text += `練習問題数: ${practiceResults.length}問\n\n`;
-    
-    practiceResults.forEach((r, i) => {
-      text += '-'.repeat(50) + '\n';
-      text += `Q${i + 1}. ${r.question}\n\n`;
-      text += `【あなたの回答】\n${r.userAnswer}\n\n`;
-      text += `【スコア】${r.feedback.score}点 - ${r.feedback.scoreComment}\n\n`;
-      text += `【良かった点】\n${r.feedback.goodPoints.map(p => `・${p}`).join('\n')}\n\n`;
-      text += `【改善ポイント】\n${r.feedback.improvements.map(p => `・${p}`).join('\n')}\n\n`;
-      text += `【改善例】\n${r.feedback.improvedAnswer}\n\n`;
-    });
-    
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '面接練習結果.txt'; a.click();
-  };
-
   const tabs = [
     { id: 'preparation', label: '準備', icon: FileText },
-    { id: 'questions', label: '質問生成', icon: MessageSquare },
-    { id: 'practice', label: '練習', icon: Mic },
+    { id: 'questions', label: '想定質問', icon: MessageSquare },
     { id: 'correction', label: '添削', icon: PenTool },
-    { id: 'history', label: '履歴', icon: History },
+    { id: 'market', label: '市場評価', icon: BarChart3 },
   ];
 
   return (
@@ -278,11 +273,11 @@ JavaScript, TypeScript, React, Node.js, AWS
                 </div>
                 <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
                   <div className="flex items-center gap-2 mb-2"><span className="bg-purple-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">2</span><span className="font-semibold text-gray-800">AIが分析</span></div>
-                  <p className="text-sm text-gray-600">あなたに最適な質問を生成</p>
+                  <p className="text-sm text-gray-600">想定質問と模範解答を生成</p>
                 </div>
                 <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
-                  <div className="flex items-center gap-2 mb-2"><span className="bg-green-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">3</span><span className="font-semibold text-gray-800">練習開始</span></div>
-                  <p className="text-sm text-gray-600">AIと模擬面接で実践練習</p>
+                  <div className="flex items-center gap-2 mb-2"><span className="bg-green-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">3</span><span className="font-semibold text-gray-800">練習&分析</span></div>
+                  <p className="text-sm text-gray-600">回答練習と市場価値を確認</p>
                 </div>
               </div>
             </div>
@@ -301,8 +296,7 @@ JavaScript, TypeScript, React, Node.js, AWS
         <div className="flex border-b bg-gray-50 overflow-x-auto">
           {tabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 min-w-0 py-4 px-2 text-sm md:text-base font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600 hover:bg-gray-100'} ${tab.id === 'practice' && questions.length === 0 ? 'opacity-50' : ''}`}
-              disabled={tab.id === 'practice' && questions.length === 0}>
+              className={`flex-1 min-w-0 py-4 px-2 text-sm md:text-base font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}>
               <tab.icon className="w-4 h-4" />
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
@@ -316,16 +310,16 @@ JavaScript, TypeScript, React, Node.js, AWS
               <div className="bg-gray-50 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold flex items-center gap-2"><span className="w-1 h-6 bg-indigo-600 rounded"></span>📄 履歴書・職務経歴書</h2>
-                  <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">任意</span>
+                  <span className="text-xs text-white bg-red-500 px-2 py-1 rounded">重要</span>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">入力すると、あなたの経験に合わせた質問が生成されます</p>
-                <textarea value={resumeText} onChange={(e) => setResumeText(e.target.value)} className="w-full h-48 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none text-sm" placeholder="例）&#10;【職歴】&#10;2022年4月 - 現在: 株式会社○○&#10;・Webアプリケーション開発&#10;&#10;【スキル】&#10;JavaScript, React, Node.js..." />
+                <p className="text-sm text-gray-600 mb-3">入力すると、あなたの経験に合わせた質問が生成され、市場評価も受けられます</p>
+                <textarea value={resumeText} onChange={(e) => setResumeText(e.target.value)} className="w-full h-48 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none text-sm" placeholder="例）&#10;【職歴】&#10;2022年4月 - 現在: 株式会社○○&#10;・Webアプリケーション開発&#10;・チームリーダーとして5名をマネジメント&#10;&#10;【スキル】&#10;JavaScript, React, Node.js..." />
               </div>
 
               <div className="bg-gray-50 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold flex items-center gap-2"><span className="w-1 h-6 bg-indigo-600 rounded"></span>📋 求人情報</h2>
-                  <span className="text-xs text-white bg-red-500 px-2 py-1 rounded">必須</span>
+                  <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">質問生成に必要</span>
                 </div>
                 <p className="text-sm text-gray-600 mb-3">応募先の求人情報を貼り付けてください</p>
                 <textarea value={jobInfo} onChange={(e) => setJobInfo(e.target.value)} className="w-full h-32 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none text-sm" placeholder="例）&#10;【企業名】株式会社テックイノベーション&#10;【職種】Webエンジニア&#10;【必須スキル】JavaScript, React" />
@@ -351,7 +345,7 @@ JavaScript, TypeScript, React, Node.js, AWS
             </div>
           )}
 
-          {/* 質問生成タブ */}
+          {/* 想定質問タブ（練習統合版） */}
           {activeTab === 'questions' && (
             <div>
               {questions.length === 0 ? (
@@ -362,241 +356,122 @@ JavaScript, TypeScript, React, Node.js, AWS
                 </div>
               ) : (
                 <>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-6 h-6 text-green-500" />
-                      <div><p className="font-semibold text-green-800">{questions.length}個の質問を生成しました！</p><p className="text-sm text-green-600">模範解答を確認、または練習モードで実践しましょう</p></div>
-                    </div>
-                    <button onClick={startPractice} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2">
-                      <Mic className="w-5 h-5" />面接練習を開始
-                    </button>
-                  </div>
-                  <div className="space-y-6">
-                    {questions.map((qa, i) => (
-                      <div key={i} className="bg-gray-50 rounded-xl p-6 border-l-4 border-indigo-500">
-                        {qa.category && <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">{qa.category}</span>}
-                        <h3 className="text-lg font-bold text-gray-800 mb-3">Q{i + 1}. {qa.question}</h3>
-                        <div className="bg-white rounded-lg p-4 border">
-                          <p className="text-xs text-indigo-600 font-semibold mb-2">💡 模範解答</p>
-                          <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{qa.answer}</p>
-                        </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-blue-800">質問に回答して練習しましょう</p>
+                        <p className="text-sm text-blue-600">各質問に対して回答を入力するとAIがフィードバックします。回答例だけ見ることもできます。</p>
                       </div>
-                    ))}
-                  </div>
-                  <div className="text-center mt-8 flex flex-wrap justify-center gap-4">
-                    <button onClick={startPractice} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2">
-                      <Mic className="w-5 h-5" />面接練習を開始
-                    </button>
-                    <button onClick={downloadResults} className="bg-green-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-green-600 inline-flex items-center gap-2">
-                      <Download className="w-5 h-5" />ダウンロード
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* 練習タブ */}
-          {activeTab === 'practice' && (
-            <div>
-              {questions.length === 0 ? (
-                <div className="text-center py-16 text-gray-500">
-                  <Mic className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg mb-4">まず質問を生成してください</p>
-                  <button onClick={() => setActiveTab('preparation')} className="bg-indigo-500 text-white px-6 py-2 rounded-full">準備タブへ</button>
-                </div>
-              ) : !practiceMode ? (
-                <div className="text-center py-12">
-                  <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-2xl p-8 max-w-lg mx-auto">
-                    <Mic className="w-16 h-16 mx-auto mb-4 text-orange-500" />
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">面接練習モード</h2>
-                    <p className="text-gray-600 mb-6">AIが面接官として質問します。<br/>あなたの回答にフィードバックを提供します。</p>
-                    <div className="bg-white rounded-lg p-4 mb-6 text-left">
-                      <p className="text-sm text-gray-600 mb-2">📝 練習の流れ</p>
-                      <ol className="text-sm text-gray-700 space-y-1">
-                        <li>1. AIが質問を表示</li>
-                        <li>2. あなたが回答を入力</li>
-                        <li>3. AIがスコアとフィードバックを表示</li>
-                        <li>4. 次の質問へ進む</li>
-                      </ol>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-4">全{questions.length}問の質問で練習できます</p>
-                    <button onClick={startPractice} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-10 py-4 rounded-full text-lg font-semibold hover:shadow-xl transition-all inline-flex items-center gap-2">
-                      <Play className="w-5 h-5" />練習を開始する
-                    </button>
-                  </div>
-                </div>
-              ) : showPracticeSummary ? (
-                // 練習結果サマリー
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white text-center">
-                    <Award className="w-16 h-16 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">練習完了！</h2>
-                    <p className="opacity-90">{practiceResults.length}問の練習が終了しました</p>
-                  </div>
-
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="bg-blue-50 rounded-xl p-6 text-center">
-                      <Target className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                      <p className="text-sm text-gray-600">練習問題数</p>
-                      <p className="text-3xl font-bold text-blue-600">{practiceResults.length}問</p>
-                    </div>
-                    <div className="bg-green-50 rounded-xl p-6 text-center">
-                      <TrendingUp className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                      <p className="text-sm text-gray-600">平均スコア</p>
-                      <p className="text-3xl font-bold text-green-600">{averageScore}点</p>
-                    </div>
-                    <div className="bg-purple-50 rounded-xl p-6 text-center">
-                      <Award className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                      <p className="text-sm text-gray-600">評価</p>
-                      <p className="text-xl font-bold text-purple-600">
-                        {averageScore >= 90 ? '素晴らしい！' : averageScore >= 80 ? 'よくできました！' : averageScore >= 70 ? '良い調子！' : 'もう少し練習を！'}
-                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="font-bold text-lg">📊 各問題の結果</h3>
-                    {practiceResults.map((result, i) => (
-                      <div key={i} className="bg-gray-50 rounded-lg p-4 border-l-4 border-indigo-500">
-                        <div className="flex justify-between items-start mb-2">
-                          <p className="font-semibold text-gray-800">Q{i + 1}. {result.question.slice(0, 50)}...</p>
-                          <span className={`px-3 py-1 rounded-full text-sm font-bold ${result.feedback.score >= 80 ? 'bg-green-100 text-green-700' : result.feedback.score >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                            {result.feedback.score}点
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">{result.feedback.scoreComment}</p>
+                    {questions.map((qa, i) => (
+                      <div key={i} className="bg-gray-50 rounded-xl overflow-hidden border border-gray-200">
+                        {/* 質問ヘッダー */}
+                        <button 
+                          onClick={() => toggleQuestion(i)}
+                          className="w-full p-5 text-left flex items-start justify-between hover:bg-gray-100 transition-all"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="bg-indigo-500 text-white text-xs font-bold px-2 py-1 rounded">Q{i + 1}</span>
+                              {qa.category && <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded">{qa.category}</span>}
+                              {feedbacks[i] && (
+                                <span className={`text-xs px-2 py-1 rounded font-semibold ${feedbacks[i].score >= 80 ? 'bg-green-100 text-green-700' : feedbacks[i].score >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                  {feedbacks[i].score}点
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-gray-800">{qa.question}</p>
+                          </div>
+                          {expandedQuestions[i] ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                        </button>
+
+                        {/* 展開コンテンツ */}
+                        {expandedQuestions[i] && (
+                          <div className="p-5 pt-0 space-y-4">
+                            {/* 回答入力エリア */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">✍️ あなたの回答</label>
+                              <textarea
+                                value={userAnswers[i] || ''}
+                                onChange={(e) => setUserAnswers(prev => ({ ...prev, [i]: e.target.value }))}
+                                className="w-full h-32 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none text-sm"
+                                placeholder="実際の面接で話すように回答を入力してください..."
+                              />
+                              <div className="flex justify-between items-center mt-2">
+                                <button
+                                  onClick={() => toggleModelAnswer(i)}
+                                  className="text-indigo-600 text-sm hover:underline flex items-center gap-1"
+                                >
+                                  {showModelAnswer[i] ? '回答例を隠す' : '回答例を見る'}
+                                  {showModelAnswer[i] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </button>
+                                <button
+                                  onClick={() => handleGetFeedback(i)}
+                                  disabled={feedbackLoading[i] || !userAnswers[i]?.trim()}
+                                  className="bg-indigo-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                                >
+                                  {feedbackLoading[i] ? (<><Loader2 className="w-4 h-4 animate-spin" />評価中...</>) : 'AIに評価してもらう'}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* 回答例（トグル表示） */}
+                            {showModelAnswer[i] && (
+                              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                                <p className="text-xs text-green-600 font-semibold mb-2">💡 回答例</p>
+                                <p className="text-gray-700 text-sm whitespace-pre-wrap">{qa.answer}</p>
+                              </div>
+                            )}
+
+                            {/* フィードバック表示 */}
+                            {feedbacks[i] && (
+                              <div className="space-y-3 pt-2">
+                                <div className={`rounded-lg p-4 ${feedbacks[i].score >= 80 ? 'bg-green-50 border border-green-200' : feedbacks[i].score >= 60 ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'}`}>
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className={`text-2xl font-bold ${feedbacks[i].score >= 80 ? 'text-green-600' : feedbacks[i].score >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                      {feedbacks[i].score}点
+                                    </span>
+                                    <span className="text-gray-600 text-sm">{feedbacks[i].scoreComment}</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid md:grid-cols-2 gap-3">
+                                  <div className="bg-blue-50 rounded-lg p-3">
+                                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />良かった点</p>
+                                    <ul className="text-sm text-blue-800 space-y-1">
+                                      {feedbacks[i].goodPoints.map((p, j) => <li key={j}>• {p}</li>)}
+                                    </ul>
+                                  </div>
+                                  <div className="bg-yellow-50 rounded-lg p-3">
+                                    <p className="text-xs font-semibold text-yellow-700 mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" />改善ポイント</p>
+                                    <ul className="text-sm text-yellow-800 space-y-1">
+                                      {feedbacks[i].improvements.map((p, j) => <li key={j}>• {p}</li>)}
+                                    </ul>
+                                  </div>
+                                </div>
+
+                                <div className="bg-purple-50 rounded-lg p-3">
+                                  <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1"><Lightbulb className="w-4 h-4" />改善した回答例</p>
+                                  <p className="text-sm text-purple-800">{feedbacks[i].improvedAnswer}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
 
-                  <div className="text-center space-x-4">
-                    <button onClick={downloadPracticeResults} className="bg-green-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-green-600 inline-flex items-center gap-2">
+                  <div className="text-center mt-8">
+                    <button onClick={downloadResults} className="bg-green-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-green-600 inline-flex items-center gap-2">
                       <Download className="w-5 h-5" />結果をダウンロード
                     </button>
-                    <button onClick={startPractice} className="bg-orange-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-orange-600 inline-flex items-center gap-2">
-                      <RefreshCw className="w-5 h-5" />もう一度練習
-                    </button>
-                    <button onClick={closePractice} className="bg-gray-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-gray-600">
-                      終了
-                    </button>
                   </div>
-                </div>
-              ) : (
-                // 練習中の画面
-                <div className="space-y-6">
-                  {/* 進捗バー */}
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm text-gray-600">質問 {currentQuestionIndex + 1} / {questions.length}</span>
-                    <div className="flex-1 mx-4 bg-gray-200 rounded-full h-2">
-                      <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}></div>
-                    </div>
-                    <button onClick={endPractice} className="text-sm text-gray-500 hover:text-gray-700">終了する</button>
-                  </div>
-
-                  {/* 質問カード */}
-                  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="bg-white/20 px-3 py-1 rounded-full text-sm">👔 面接官</span>
-                      {questions[currentQuestionIndex].category && (
-                        <span className="bg-white/20 px-3 py-1 rounded-full text-sm">{questions[currentQuestionIndex].category}</span>
-                      )}
-                    </div>
-                    <p className="text-xl font-semibold">Q{currentQuestionIndex + 1}. {questions[currentQuestionIndex].question}</p>
-                  </div>
-
-                  {/* 回答入力エリア */}
-                  {!practiceFeedback && (
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">✍️ あなたの回答</label>
-                      <textarea
-                        value={userAnswer}
-                        onChange={(e) => setUserAnswer(e.target.value)}
-                        className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none"
-                        placeholder="実際の面接で話すように回答を入力してください..."
-                        disabled={practiceLoading}
-                      />
-                      <div className="flex justify-between items-center mt-4">
-                        <p className="text-sm text-gray-500">{userAnswer.length} 文字</p>
-                        <button
-                          onClick={submitAnswer}
-                          disabled={practiceLoading || !userAnswer.trim()}
-                          className="bg-indigo-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                        >
-                          {practiceLoading ? (<><Loader2 className="w-5 h-5 animate-spin" />評価中...</>) : (<>回答を送信<ChevronRight className="w-5 h-5" /></>)}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* フィードバック表示 */}
-                  {practiceFeedback && (
-                    <div className="space-y-4">
-                      {/* スコア */}
-                      <div className={`rounded-xl p-6 text-center ${practiceFeedback.score >= 80 ? 'bg-green-50 border-2 border-green-200' : practiceFeedback.score >= 60 ? 'bg-yellow-50 border-2 border-yellow-200' : 'bg-red-50 border-2 border-red-200'}`}>
-                        <p className="text-sm text-gray-600 mb-1">あなたのスコア</p>
-                        <p className={`text-5xl font-bold mb-2 ${practiceFeedback.score >= 80 ? 'text-green-600' : practiceFeedback.score >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                          {practiceFeedback.score}<span className="text-2xl">点</span>
-                        </p>
-                        <p className="text-gray-700">{practiceFeedback.scoreComment}</p>
-                      </div>
-
-                      {/* 良かった点 */}
-                      <div className="bg-blue-50 rounded-xl p-5">
-                        <h4 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
-                          <CheckCircle2 className="w-5 h-5" />良かった点
-                        </h4>
-                        <ul className="space-y-2">
-                          {practiceFeedback.goodPoints.map((point, i) => (
-                            <li key={i} className="text-blue-700 flex items-start gap-2">
-                              <span className="mt-1">•</span><span>{point}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* 改善ポイント */}
-                      <div className="bg-yellow-50 rounded-xl p-5">
-                        <h4 className="font-bold text-yellow-800 mb-3 flex items-center gap-2">
-                          <TrendingUp className="w-5 h-5" />改善ポイント
-                        </h4>
-                        <ul className="space-y-2">
-                          {practiceFeedback.improvements.map((point, i) => (
-                            <li key={i} className="text-yellow-700 flex items-start gap-2">
-                              <span className="mt-1">•</span><span>{point}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* 改善例 */}
-                      <div className="bg-green-50 rounded-xl p-5">
-                        <h4 className="font-bold text-green-800 mb-3 flex items-center gap-2">
-                          <Sparkles className="w-5 h-5" />改善した回答例
-                        </h4>
-                        <p className="text-green-700 whitespace-pre-wrap">{practiceFeedback.improvedAnswer}</p>
-                      </div>
-
-                      {/* アドバイス */}
-                      <div className="bg-purple-50 rounded-xl p-5">
-                        <h4 className="font-bold text-purple-800 mb-2 flex items-center gap-2">
-                          <Lightbulb className="w-5 h-5" />次回へのアドバイス
-                        </h4>
-                        <p className="text-purple-700">{practiceFeedback.tips}</p>
-                      </div>
-
-                      {/* 次へボタン */}
-                      <div className="text-center pt-4">
-                        <button
-                          onClick={nextQuestion}
-                          className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-10 py-4 rounded-full text-lg font-semibold hover:shadow-xl transition-all inline-flex items-center gap-2"
-                        >
-                          {currentQuestionIndex < questions.length - 1 ? (<>次の質問へ<SkipForward className="w-5 h-5" /></>) : (<>結果を見る<Award className="w-5 h-5" /></>)}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </>
               )}
             </div>
           )}
@@ -610,7 +485,7 @@ JavaScript, TypeScript, React, Node.js, AWS
               </div>
               <div className="bg-gray-50 rounded-xl p-6">
                 <h2 className="text-xl font-bold mb-4">✏️ 添削対象テキスト</h2>
-                <textarea value={correctionText} onChange={(e) => setCorrectionText(e.target.value)} className="w-full h-48 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none text-sm" placeholder="添削したい文章を入力..." />
+                <textarea value={correctionText} onChange={(e) => setCorrectionText(e.target.value)} className="w-full h-48 p-4 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none text-sm" placeholder="添削したい文章を入力...（空欄の場合は準備タブの職務経歴書が使用されます）" />
               </div>
               <select value={correctionFocus} onChange={(e) => setCorrectionFocus(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-lg">
                 <option value="overall">総合的な添削</option>
@@ -635,35 +510,183 @@ JavaScript, TypeScript, React, Node.js, AWS
             </div>
           )}
 
-          {/* 履歴タブ */}
-          {activeTab === 'history' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">📚 履歴</h2>
-                <button onClick={fetchHistory} className="text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1 text-sm"><RefreshCw className={`w-4 h-4 ${historyLoading ? 'animate-spin' : ''}`} />更新</button>
+          {/* 市場評価タブ */}
+          {activeTab === 'market' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <BarChart3 className="w-6 h-6 text-indigo-500 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-gray-800">市場からの見え方を可視化</p>
+                    <p className="text-sm text-gray-600">あなたの経歴が転職市場でどのように評価されるか、客観的な視点で分析します</p>
+                  </div>
+                </div>
               </div>
-              {history.length === 0 ? (
-                <div className="text-center py-16 text-gray-500"><History className="w-16 h-16 mx-auto mb-4 opacity-50" /><p>まだ履歴がありません</p></div>
+
+              {!resumeText.trim() ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg mb-4">職務経歴を入力してください</p>
+                  <button onClick={() => setActiveTab('preparation')} className="bg-indigo-500 text-white px-6 py-2 rounded-full">準備タブへ</button>
+                </div>
+              ) : !marketEvaluation ? (
+                <div className="text-center py-8">
+                  {marketError && <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">{marketError}</div>}
+                  <button onClick={handleMarketEvaluation} disabled={marketLoading} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-10 py-4 rounded-full text-lg font-semibold hover:shadow-xl transition-all disabled:opacity-50 inline-flex items-center gap-2">
+                    {marketLoading ? (<><Loader2 className="w-5 h-5 animate-spin" />分析中...</>) : (<><BarChart3 className="w-5 h-5" />市場評価を見る</>)}
+                  </button>
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {history.map((item) => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg p-5 border-l-4 border-indigo-500">
-                      <div className="flex justify-between items-start mb-3">
-                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${item.type === 'questions' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'}`}>{item.type === 'questions' ? '💭 質問生成' : '✏️ 添削'}</span>
-                        <div className="flex gap-2">
-                          <button onClick={() => handleLoadHistory(item)} className="text-indigo-600 text-sm px-3 py-1 rounded hover:bg-indigo-50">読み込む</button>
-                          <button onClick={() => handleDeleteHistory(item.id)} className="text-red-500 p-1 rounded hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                <div className="space-y-6">
+                  {/* 市場での見え方 */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <Target className="w-5 h-5 text-indigo-500" />
+                      市場での見え方
+                    </h3>
+                    <p className="text-gray-700 mb-4 bg-gray-50 p-4 rounded-lg">{marketEvaluation.marketView.summary}</p>
+                    
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Zap className="w-4 h-4" />即戦力として評価されやすい経験</p>
+                        <ul className="text-sm text-blue-800 space-y-1">
+                          {marketEvaluation.marketView.instantValue.map((v, i) => <li key={i}>• {v}</li>)}
+                        </ul>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" />需要が伸びているスキル</p>
+                        <ul className="text-sm text-green-800 space-y-1">
+                          {marketEvaluation.marketView.growingDemand.map((v, i) => <li key={i}>• {v}</li>)}
+                        </ul>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1"><Award className="w-4 h-4" />再現性の高い実績</p>
+                        <ul className="text-sm text-purple-800 space-y-1">
+                          {marketEvaluation.marketView.reproducibleResults.map((v, i) => <li key={i}>• {v}</li>)}
+                        </ul>
                       </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* 市場で評価されやすい強み */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <Award className="w-5 h-5 text-green-500" />
+                      市場で評価されやすい強み
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded">実行力</span>
+                        <p className="text-gray-700 text-sm flex-1">{marketEvaluation.strengths.execution}</p>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">継続性</span>
+                        <p className="text-gray-700 text-sm flex-1">{marketEvaluation.strengths.continuity}</p>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                        <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded">問題解決力</span>
+                        <p className="text-gray-700 text-sm flex-1">{marketEvaluation.strengths.problemSolving}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 強化すると市場評価が上がりやすい領域 */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <LineChart className="w-5 h-5 text-yellow-500" />
+                      強化すると市場評価が上がりやすい領域
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="border-l-4 border-yellow-400 pl-4">
+                        <p className="text-sm font-semibold text-gray-800">成果の数値化</p>
+                        <p className="text-sm text-gray-600">{marketEvaluation.growthAreas.quantification}</p>
+                      </div>
+                      <div className="border-l-4 border-orange-400 pl-4">
+                        <p className="text-sm font-semibold text-gray-800">意思決定経験</p>
+                        <p className="text-sm text-gray-600">{marketEvaluation.growthAreas.decisionMaking}</p>
+                      </div>
+                      <div className="border-l-4 border-red-400 pl-4">
+                        <p className="text-sm font-semibold text-gray-800">横断プロジェクト</p>
+                        <p className="text-sm text-gray-600">{marketEvaluation.growthAreas.crossFunctional}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 想定キャリア方向 */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <Briefcase className="w-5 h-5 text-indigo-500" />
+                      想定キャリア方向
+                    </h3>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {marketEvaluation.careerDirections.map((dir, i) => (
+                        <div key={i} className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4">
+                          <p className="font-semibold text-gray-800 mb-2">{dir.direction}</p>
+                          <p className="text-sm text-gray-600 mb-3">{dir.description}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {dir.relevantIndustries.map((ind, j) => (
+                              <span key={j} className="bg-white text-gray-600 text-xs px-2 py-1 rounded border">{ind}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* エージェント紹介セクション */}
+                  {matchedAgents.length > 0 && (
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-indigo-500" />
+                        あなたの経歴から分析したエージェント
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">経歴と市場分析をもとに、相性の良いエージェントをピックアップしました</p>
+                      
+                      <div className="space-y-4">
+                        {matchedAgents.map((agent, i) => (
+                          <div key={agent.id} className="bg-white rounded-lg p-5 border border-gray-200 hover:shadow-md transition-all">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="bg-indigo-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">{i + 1}</span>
+                                  <h4 className="font-bold text-gray-800">{agent.name}</h4>
+                                </div>
+                                <p className="text-sm text-gray-600 mb-3">{agent.description}</p>
+                                <ul className="text-xs text-gray-500 space-y-1">
+                                  {agent.features.slice(0, 2).map((f, j) => (
+                                    <li key={j} className="flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                      {f}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              
+                                href={agent.affiliateUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-1 whitespace-nowrap transition-all"
+                              >
+                                詳細を見る
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <p className="text-xs text-gray-500 mt-4 text-center">
+                        ※ エージェントの選定は経歴情報をもとにした参考情報です
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        <div className="bg-gray-50 border-t p-4 text-center text-sm text-gray-500">💡 履歴書と求人情報を詳しく入力するほど、より的確な質問が生成されます</div>
+        <div className="bg-gray-50 border-t p-4 text-center text-sm text-gray-500">💡 履歴書と求人情報を詳しく入力するほど、より的確な分析結果が得られます</div>
       </div>
     </div>
   );
