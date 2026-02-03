@@ -4,7 +4,12 @@ import { correctDocument } from '@/lib/anthropic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { documentText, focus = 'overall' } = body;
+    const {
+      documentText,
+      focus = 'overall',
+      jobInfo,
+      positionAnalysis,
+    } = body;
 
     if (!documentText || documentText.trim() === '') {
       return NextResponse.json(
@@ -16,6 +21,8 @@ export async function POST(req: NextRequest) {
     const result = await correctDocument({
       documentText,
       focus,
+      jobInfo,
+      positionAnalysis,
     });
 
     return NextResponse.json(result);

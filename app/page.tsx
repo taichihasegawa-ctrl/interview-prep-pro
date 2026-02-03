@@ -245,7 +245,12 @@ export default function Home() {
       const res = await fetch('/api/correct-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentText: text, focus: correctionFocus }),
+        body: JSON.stringify({
+          documentText: text,
+          focus: correctionFocus,
+          jobInfo: jobInfo || undefined,
+          positionAnalysis: positionAnalysis || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
@@ -903,6 +908,13 @@ export default function Home() {
           <div className="space-y-8">
             <div>
               <p className="text-xs text-stone-500 tracking-widest mb-4">DOCUMENT REVIEW</p>
+              {positionAnalysis && (
+                <div className="mb-4 px-3 py-2 bg-teal-50 border-l-2 border-teal-600">
+                  <p className="text-xs text-teal-700">
+                    ポジション分析の結果を参照して添削します — {positionAnalysis.positionTitle || '分析済み'}
+                  </p>
+                </div>
+              )}
               <h2 className="text-base font-medium text-stone-800 mb-1">添削対象</h2>
               <p className="text-sm text-stone-500 mb-4">職務経歴書や自己PRなど、添削したい文章を入力してください</p>
               <textarea
