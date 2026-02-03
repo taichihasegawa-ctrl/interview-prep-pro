@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { 
-  Loader2, ChevronDown, ChevronUp, ExternalLink, ArrowRight, Check, Lock, Download
+  Loader2, ChevronDown, ChevronUp, ExternalLink, ArrowRight, Check
 } from 'lucide-react';
-import { downloadReportPdf } from '@/lib/generateReportPdf';
 
 type Question = { question: string; answer: string; category?: string; };
 type CorrectionItem = { type: string; before: string; after: string; reason: string; };
@@ -100,67 +99,8 @@ type MatchedAgent = {
   matchScore: number;
 };
 
-// Paywall Overlay コンポーネント
-function PaywallOverlay({ onPurchase }: { onPurchase: (plan: 'single' | 'pack') => void }) {
-  return (
-    <div className="relative mt-2">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-stone-50/80 to-stone-50 z-10" />
-      <div className="relative z-20 flex justify-center pt-8 pb-4">
-        <div className="bg-white border border-stone-200 shadow-sm max-w-sm w-full p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Lock className="w-4 h-4 text-stone-500" />
-            <p className="text-sm font-medium text-stone-800">全ての分析結果を見る</p>
-          </div>
-          <p className="text-xs text-stone-500 leading-relaxed mb-5">
-            ポジション分析の詳細、全ての想定質問と模範解答、添削の具体的な改善提案、市場評価の全データにアクセスできます。
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => onPurchase('single')}
-              className="w-full bg-stone-800 text-white py-3 text-sm font-medium hover:bg-stone-700 transition-colors"
-            >
-              ¥500 で開放する
-            </button>
-            <button
-              onClick={() => onPurchase('pack')}
-              className="w-full border border-stone-300 text-stone-700 py-3 text-sm hover:bg-stone-50 transition-colors"
-            >
-              <span>3回パック ¥1,200</span>
-              <span className="text-xs text-teal-700 ml-2">1回あたり¥400</span>
-            </button>
-          </div>
-          <p className="text-xs text-stone-400 text-center mt-3">Stripeによる安全な決済</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ぼかし付きチラ見せコンポーネント
-function BlurredContent({ children, isUnlocked, onPurchase, previewContent }: {
-  children: React.ReactNode;
-  isUnlocked: boolean;
-  onPurchase: (plan: 'single' | 'pack') => void;
-  previewContent?: React.ReactNode;
-}) {
-  if (isUnlocked) return <>{children}</>;
-  return (
-    <div>
-      {previewContent}
-      <div className="relative overflow-hidden" style={{ maxHeight: '200px' }}>
-        <div className="blur-sm opacity-60 pointer-events-none select-none">
-          {children}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-stone-50" />
-      </div>
-      <PaywallOverlay onPurchase={onPurchase} />
-    </div>
-  );
-}
-
 export default function Home() {
   const [activeTab, setActiveTab] = useState('prepare');
-  const [isUnlocked, setIsUnlocked] = useState(false);
   const [resumeText, setResumeText] = useState('');
   const [jobInfo, setJobInfo] = useState('');
   const [questionCount, setQuestionCount] = useState('7');
@@ -192,39 +132,6 @@ export default function Home() {
   const [positionLoading, setPositionLoading] = useState(false);
   const [positionError, setPositionError] = useState('');
 
-  // 課金ハンドラ
-  const handlePurchase = async (plan: 'single' | 'pack') => {
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-    }
-  };
-
-  // URLパラメータから課金状態を確認（Stripe success_url からの復帰）
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('payment') === 'success') {
-        setIsUnlocked(true);
-        // URLからパラメータを削除
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-      // ローカルストレージから復元
-      const credits = localStorage.getItem('remaining_credits');
-      if (credits && parseInt(credits) > 0) {
-        setIsUnlocked(true);
-      }
-    }
-  });
   const sampleResume = `【学歴】
 2016年4月 - 2020年3月: 明治大学 商学部 卒業
 
@@ -440,19 +347,6 @@ export default function Home() {
     handleMarketEvaluation();
   };
 
-  // PDFレポートダウンロード
-  const hasAnyReport = positionAnalysis || questions.length > 0 || correctionResult || marketEvaluation;
-  
-  const handleDownloadPdf = () => {
-    downloadReportPdf({
-      positionAnalysis,
-      questions,
-      correctionResult,
-      marketEvaluation,
-      positionTitle: positionAnalysis?.positionReality?.title || jobInfo.split('\n')[0]?.replace(/【.*?】/, '').trim(),
-    });
-  };
-
   const handlePositionAnalysis = async () => {
     if (!jobInfo.trim()) {
       setPositionError('求人情報を入力してください');
@@ -509,24 +403,12 @@ export default function Home() {
       {/* ヘッダー */}
       <header className="border-b border-stone-200 bg-white">
         <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-baseline justify-between">
             <div>
               <h1 className="text-lg font-medium text-stone-800 tracking-tight">面接対策</h1>
               <p className="text-xs text-stone-500 mt-0.5">Interview Preparation</p>
             </div>
-            <div className="flex items-center gap-3">
-              {hasAnyReport && (
-                <button
-                  onClick={handleDownloadPdf}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-600 border border-stone-300 hover:bg-stone-50 hover:text-stone-800 transition-colors"
-                  title="レポートをPDFでダウンロード"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  PDF
-                </button>
-              )}
-              <p className="text-xs text-stone-400">ver 1.0</p>
-            </div>
+            <p className="text-xs text-stone-400">ver 1.0</p>
           </div>
         </div>
       </header>
@@ -729,18 +611,16 @@ export default function Home() {
                   <p className="text-lg font-medium text-stone-800 mb-3">{positionAnalysis.positionReality.title}</p>
                   <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.positionReality.summary}</p>
 
-                  <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-xs text-stone-500 mb-2">想定される1日の業務</p>
-                        <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.dayInLife}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-stone-500 mb-2">チーム構成・報告ライン</p>
-                        <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.teamContext}</p>
-                      </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs text-stone-500 mb-2">想定される1日の業務</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.dayInLife}</p>
                     </div>
-                  </BlurredContent>
+                    <div>
+                      <p className="text-xs text-stone-500 mb-2">チーム構成・報告ライン</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.teamContext}</p>
+                    </div>
+                  </div>
                 </section>
 
                 {/* 求人の行間を読む */}
@@ -748,133 +628,107 @@ export default function Home() {
                   <p className="text-xs text-stone-500 tracking-widest mb-4">READ BETWEEN THE LINES</p>
                   <p className="text-sm text-stone-600 mb-6">求人票の表現から読み取れること</p>
                   
-                  {/* 1つ目だけ無料表示 */}
-                  {positionAnalysis.readBetweenLines.length > 0 && (
-                    <div className="space-y-6 mb-4">
-                      <div className="grid grid-cols-12 gap-4">
+                  <div className="space-y-6">
+                    {positionAnalysis.readBetweenLines.map((item, i) => (
+                      <div key={i} className="grid grid-cols-12 gap-4">
                         <div className="col-span-4">
                           <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
-                          <p className="text-sm text-stone-600 italic">&ldquo;{positionAnalysis.readBetweenLines[0].surface}&rdquo;</p>
+                          <p className="text-sm text-stone-600 italic">&ldquo;{item.surface}&rdquo;</p>
                         </div>
                         <div className="col-span-1 flex justify-center pt-4">
                           <ArrowRight className="w-4 h-4 text-stone-400" />
                         </div>
                         <div className="col-span-7 border-l-2 border-teal-600 pl-4">
                           <p className="text-xs text-stone-400 mb-1">読み解き</p>
-                          <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.readBetweenLines[0].insight}</p>
+                          <p className="text-sm text-stone-700 leading-relaxed">{item.insight}</p>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* 2つ目以降はぼかし */}
-                  {positionAnalysis.readBetweenLines.length > 1 && (
-                    <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
-                      <div className="space-y-6">
-                        {positionAnalysis.readBetweenLines.slice(1).map((item, i) => (
-                          <div key={i} className="grid grid-cols-12 gap-4">
-                            <div className="col-span-4">
-                              <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
-                              <p className="text-sm text-stone-600 italic">&ldquo;{item.surface}&rdquo;</p>
-                            </div>
-                            <div className="col-span-1 flex justify-center pt-4">
-                              <ArrowRight className="w-4 h-4 text-stone-400" />
-                            </div>
-                            <div className="col-span-7 border-l-2 border-teal-600 pl-4">
-                              <p className="text-xs text-stone-400 mb-1">読み解き</p>
-                              <p className="text-sm text-stone-700 leading-relaxed">{item.insight}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </BlurredContent>
-                  )}
+                    ))}
+                  </div>
                 </section>
 
                 {/* 面接で見られるポイント */}
-                <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
+                  <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.interviewFocus.whatTheyReallyWant}</p>
+                  
+                  <div className="space-y-4 mb-6">
+                    {positionAnalysis.interviewFocus.keyQualities.map((kq, i) => (
+                      <div key={i} className="flex gap-4">
+                        <span className="text-xs text-stone-400 font-mono w-6 pt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                        <div>
+                          <p className="text-sm font-medium text-stone-800">{kq.quality}</p>
+                          <p className="text-sm text-stone-600">{kq.why}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-l-2 border-amber-500 pl-4">
+                    <p className="text-xs text-stone-500 mb-1">採用側が持ちうる懸念</p>
+                    <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.interviewFocus.possibleConcerns}</p>
+                  </div>
+                </section>
+
+                {/* あなたが活かせるポイント */}
+                {positionAnalysis.yourFit && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
-                    <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.interviewFocus.whatTheyReallyWant}</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">YOUR FIT</p>
+                    <p className="text-sm text-stone-600 mb-6">あなたの経歴とこのポジションの接点</p>
                     
-                    <div className="space-y-4 mb-6">
-                      {positionAnalysis.interviewFocus.keyQualities.map((kq, i) => (
-                        <div key={i} className="flex gap-4">
-                          <span className="text-xs text-stone-400 font-mono w-6 pt-0.5">{String(i + 1).padStart(2, '0')}</span>
-                          <div>
-                            <p className="text-sm font-medium text-stone-800">{kq.quality}</p>
-                            <p className="text-sm text-stone-600">{kq.why}</p>
+                    <div className="space-y-6 mb-8">
+                      {positionAnalysis.yourFit.strongConnections.map((conn, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-4">
+                          <div className="col-span-4">
+                            <p className="text-xs text-stone-400 mb-1">あなたの経験</p>
+                            <p className="text-sm text-stone-700 font-medium">{conn.yourExperience}</p>
+                          </div>
+                          <div className="col-span-1 flex justify-center pt-4">
+                            <ArrowRight className="w-4 h-4 text-stone-400" />
+                          </div>
+                          <div className="col-span-7 border-l-2 border-teal-600 pl-4">
+                            <p className="text-xs text-stone-400 mb-1">このポジションでの活かし方</p>
+                            <p className="text-sm text-stone-700 leading-relaxed">{conn.howItConnects}</p>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="border-l-2 border-amber-500 pl-4">
-                      <p className="text-xs text-stone-500 mb-1">採用側が持ちうる懸念</p>
-                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.interviewFocus.possibleConcerns}</p>
+                    <div className="border-l-2 border-amber-500 pl-4 mb-6">
+                      <p className="text-xs text-stone-500 mb-1">面接で補うべきポイント</p>
+                      <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.yourFit.gapToAddress}</p>
+                    </div>
+
+                    <div className="bg-stone-100 p-4">
+                      <p className="text-xs text-stone-500 mb-2">面接戦略</p>
+                      <p className="text-sm text-stone-800 leading-relaxed">{positionAnalysis.yourFit.interviewStrategy}</p>
                     </div>
                   </section>
+                )}
 
-                  {/* あなたが活かせるポイント */}
-                  {positionAnalysis.yourFit && (
-                    <section className="border-t border-stone-200 pt-8">
-                      <p className="text-xs text-stone-500 tracking-widest mb-4">YOUR FIT</p>
-                      <p className="text-sm text-stone-600 mb-6">あなたの経歴とこのポジションの接点</p>
-                      
-                      <div className="space-y-6 mb-8">
-                        {positionAnalysis.yourFit.strongConnections.map((conn, i) => (
-                          <div key={i} className="grid grid-cols-12 gap-4">
-                            <div className="col-span-4">
-                              <p className="text-xs text-stone-400 mb-1">あなたの経験</p>
-                              <p className="text-sm text-stone-700 font-medium">{conn.yourExperience}</p>
-                            </div>
-                            <div className="col-span-1 flex justify-center pt-4">
-                              <ArrowRight className="w-4 h-4 text-stone-400" />
-                            </div>
-                            <div className="col-span-7 border-l-2 border-teal-600 pl-4">
-                              <p className="text-xs text-stone-400 mb-1">このポジションでの活かし方</p>
-                              <p className="text-sm text-stone-700 leading-relaxed">{conn.howItConnects}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="border-l-2 border-amber-500 pl-4 mb-6">
-                        <p className="text-xs text-stone-500 mb-1">面接で補うべきポイント</p>
-                        <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.yourFit.gapToAddress}</p>
-                      </div>
-
-                      <div className="bg-stone-100 p-4">
-                        <p className="text-xs text-stone-500 mb-2">面接戦略</p>
-                        <p className="text-sm text-stone-800 leading-relaxed">{positionAnalysis.yourFit.interviewStrategy}</p>
-                      </div>
-                    </section>
-                  )}
-
-                  {/* 次のステップ誘導 */}
-                  <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
-                    <p className="text-sm text-stone-600 mb-4">分析結果をもとに、面接対策を進めましょう</p>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => {
-                          setActiveTab('questions');
-                          if (questions.length === 0) handleGenerateQuestions();
-                        }}
-                        className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
-                      >
-                        想定質問を生成
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('market')}
-                        className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors"
-                      >
-                        市場評価を見る
-                      </button>
-                    </div>
-                  </section>
-                </BlurredContent>
+                {/* 次のステップ誘導 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
+                  <p className="text-sm text-stone-600 mb-4">分析結果をもとに、面接対策を進めましょう</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setActiveTab('questions');
+                        if (questions.length === 0) handleGenerateQuestions();
+                      }}
+                      className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
+                    >
+                      想定質問を生成
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('market')}
+                      className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors"
+                    >
+                      市場評価を見る
+                    </button>
+                  </div>
+                </section>
               </div>
             )}
           </div>
@@ -925,11 +779,7 @@ export default function Home() {
                 </div>
 
                 {questions.map((qa, i) => (
-                  <div key={i} className={i >= 2 && !isUnlocked ? '' : ''}>
-                    {i === 2 && !isUnlocked && (
-                      <PaywallOverlay onPurchase={handlePurchase} />
-                    )}
-                    <div className={`border-t border-stone-200 ${i >= 2 && !isUnlocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''}`}>
+                  <div key={i} className="border-t border-stone-200">
                     <button
                       onClick={() => toggleQuestion(i)}
                       className="w-full py-4 text-left flex items-start justify-between hover:bg-stone-50/50 transition-colors"
@@ -1046,7 +896,6 @@ export default function Home() {
                         )}
                       </div>
                     )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1111,13 +960,11 @@ export default function Home() {
 
             {correctionResult && (
               <div className="border-t border-stone-200 pt-8 space-y-6">
-                {/* 無料: Summary */}
                 <div>
                   <p className="text-xs text-stone-500 tracking-widest mb-2">SUMMARY</p>
                   <p className="text-sm text-stone-800 leading-relaxed">{correctionResult.summary}</p>
                 </div>
 
-                {/* 無料: Strengths */}
                 {correctionResult.strengths && correctionResult.strengths.length > 0 && (
                   <div>
                     <p className="text-xs text-stone-500 tracking-widest mb-2">STRENGTHS</p>
@@ -1132,62 +979,36 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* 無料: Corrections 1つ目 + 有料: 残り */}
                 {correctionResult.corrections && correctionResult.corrections.length > 0 && (
                   <div>
                     <p className="text-xs text-stone-500 tracking-widest mb-4">IMPROVEMENTS</p>
                     <div className="space-y-6">
-                      {/* 1つ目は無料 */}
-                      <div className="border-l-2 border-amber-500 pl-4">
-                        <p className="text-xs text-stone-500 mb-2">{correctionResult.corrections[0].type}</p>
-                        <div className="grid grid-cols-2 gap-4 mb-2">
-                          <div>
-                            <p className="text-xs text-stone-400 mb-1">Before</p>
-                            <p className="text-sm text-stone-600">{correctionResult.corrections[0].before}</p>
+                      {correctionResult.corrections.map((c, i) => (
+                        <div key={i} className="border-l-2 border-amber-500 pl-4">
+                          <p className="text-xs text-stone-500 mb-2">{c.type}</p>
+                          <div className="grid grid-cols-2 gap-4 mb-2">
+                            <div>
+                              <p className="text-xs text-stone-400 mb-1">Before</p>
+                              <p className="text-sm text-stone-600">{c.before}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-teal-600 mb-1">After</p>
+                              <p className="text-sm text-stone-800">{c.after}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs text-teal-600 mb-1">After</p>
-                            <p className="text-sm text-stone-800">{correctionResult.corrections[0].after}</p>
-                          </div>
+                          <p className="text-xs text-stone-500">{c.reason}</p>
                         </div>
-                        <p className="text-xs text-stone-500">{correctionResult.corrections[0].reason}</p>
-                      </div>
-
-                      {/* 2つ目以降 + Suggestions はぼかし */}
-                      {correctionResult.corrections.length > 1 && (
-                        <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
-                          <div className="space-y-6">
-                            {correctionResult.corrections.slice(1).map((c, i) => (
-                              <div key={i} className="border-l-2 border-amber-500 pl-4">
-                                <p className="text-xs text-stone-500 mb-2">{c.type}</p>
-                                <div className="grid grid-cols-2 gap-4 mb-2">
-                                  <div>
-                                    <p className="text-xs text-stone-400 mb-1">Before</p>
-                                    <p className="text-sm text-stone-600">{c.before}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-teal-600 mb-1">After</p>
-                                    <p className="text-sm text-stone-800">{c.after}</p>
-                                  </div>
-                                </div>
-                                <p className="text-xs text-stone-500">{c.reason}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </BlurredContent>
-                      )}
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {isUnlocked && (
-                  <button
-                    onClick={downloadCorrection}
-                    className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
-                  >
-                    結果をダウンロード
-                  </button>
-                )}
+                <button
+                  onClick={downloadCorrection}
+                  className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
+                >
+                  結果をダウンロード
+                </button>
               </div>
             )}
           </div>
@@ -1231,13 +1052,13 @@ export default function Home() {
               </div>
             ) : (
               <div className="space-y-10">
-                {/* 無料: 概要 */}
+                {/* 概要 */}
                 <section>
                   <p className="text-xs text-stone-500 tracking-widest mb-3">MARKET VIEW</p>
                   <p className="text-sm text-stone-800 leading-relaxed">{marketEvaluation.marketView.summary}</p>
                 </section>
 
-                {/* 無料: 3カラム評価 */}
+                {/* 3カラム評価 */}
                 <section className="grid grid-cols-3 gap-6 border-t border-b border-stone-200 py-8">
                   <div>
                     <p className="text-xs text-stone-500 mb-3">即戦力として評価されやすい経験</p>
@@ -1265,65 +1086,62 @@ export default function Home() {
                   </div>
                 </section>
 
-                {/* 有料: Strengths以降すべて */}
-                <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
-                  {/* 強み */}
-                  <section>
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">STRENGTHS</p>
-                    <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <span className="text-xs text-stone-500 w-20 flex-shrink-0 pt-0.5">実行力</span>
-                        <p className="text-sm text-stone-700">{marketEvaluation.strengths.execution}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <span className="text-xs text-stone-500 w-20 flex-shrink-0 pt-0.5">継続性</span>
-                        <p className="text-sm text-stone-700">{marketEvaluation.strengths.continuity}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <span className="text-xs text-stone-500 w-20 flex-shrink-0 pt-0.5">問題解決力</span>
-                        <p className="text-sm text-stone-700">{marketEvaluation.strengths.problemSolving}</p>
-                      </div>
+                {/* 強み */}
+                <section>
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">STRENGTHS</p>
+                  <div className="space-y-4">
+                    <div className="flex gap-4">
+                      <span className="text-xs text-stone-500 w-20 flex-shrink-0 pt-0.5">実行力</span>
+                      <p className="text-sm text-stone-700">{marketEvaluation.strengths.execution}</p>
                     </div>
-                  </section>
-
-                  {/* 成長領域 */}
-                  <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">GROWTH AREAS</p>
-                    <p className="text-sm text-stone-600 mb-4">強化すると市場評価が上がりやすい領域</p>
-                    <div className="space-y-4">
-                      <div className="border-l-2 border-amber-500 pl-4">
-                        <p className="text-xs text-stone-500 mb-1">成果の数値化</p>
-                        <p className="text-sm text-stone-700">{marketEvaluation.growthAreas.quantification}</p>
-                      </div>
-                      <div className="border-l-2 border-amber-500 pl-4">
-                        <p className="text-xs text-stone-500 mb-1">意思決定経験</p>
-                        <p className="text-sm text-stone-700">{marketEvaluation.growthAreas.decisionMaking}</p>
-                      </div>
-                      <div className="border-l-2 border-amber-500 pl-4">
-                        <p className="text-xs text-stone-500 mb-1">横断プロジェクト</p>
-                        <p className="text-sm text-stone-700">{marketEvaluation.growthAreas.crossFunctional}</p>
-                      </div>
+                    <div className="flex gap-4">
+                      <span className="text-xs text-stone-500 w-20 flex-shrink-0 pt-0.5">継続性</span>
+                      <p className="text-sm text-stone-700">{marketEvaluation.strengths.continuity}</p>
                     </div>
-                  </section>
+                    <div className="flex gap-4">
+                      <span className="text-xs text-stone-500 w-20 flex-shrink-0 pt-0.5">問題解決力</span>
+                      <p className="text-sm text-stone-700">{marketEvaluation.strengths.problemSolving}</p>
+                    </div>
+                  </div>
+                </section>
 
-                  {/* キャリア方向 */}
-                  <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">CAREER DIRECTIONS</p>
-                    <div className="grid grid-cols-3 gap-6">
-                      {marketEvaluation.careerDirections.map((dir, i) => (
-                        <div key={i}>
-                          <p className="text-sm font-medium text-stone-800 mb-2">{dir.direction}</p>
-                          <p className="text-sm text-stone-600 mb-3 leading-relaxed">{dir.description}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {dir.relevantIndustries.map((ind, j) => (
-                              <span key={j} className="text-xs text-stone-500 border border-stone-300 px-2 py-0.5">{ind}</span>
-                            ))}
-                          </div>
+                {/* 成長領域 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">GROWTH AREAS</p>
+                  <p className="text-sm text-stone-600 mb-4">強化すると市場評価が上がりやすい領域</p>
+                  <div className="space-y-4">
+                    <div className="border-l-2 border-amber-500 pl-4">
+                      <p className="text-xs text-stone-500 mb-1">成果の数値化</p>
+                      <p className="text-sm text-stone-700">{marketEvaluation.growthAreas.quantification}</p>
+                    </div>
+                    <div className="border-l-2 border-amber-500 pl-4">
+                      <p className="text-xs text-stone-500 mb-1">意思決定経験</p>
+                      <p className="text-sm text-stone-700">{marketEvaluation.growthAreas.decisionMaking}</p>
+                    </div>
+                    <div className="border-l-2 border-amber-500 pl-4">
+                      <p className="text-xs text-stone-500 mb-1">横断プロジェクト</p>
+                      <p className="text-sm text-stone-700">{marketEvaluation.growthAreas.crossFunctional}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* キャリア方向 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">CAREER DIRECTIONS</p>
+                  <div className="grid grid-cols-3 gap-6">
+                    {marketEvaluation.careerDirections.map((dir, i) => (
+                      <div key={i}>
+                        <p className="text-sm font-medium text-stone-800 mb-2">{dir.direction}</p>
+                        <p className="text-sm text-stone-600 mb-3 leading-relaxed">{dir.description}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {dir.relevantIndustries.map((ind, j) => (
+                            <span key={j} className="text-xs text-stone-500 border border-stone-300 px-2 py-0.5">{ind}</span>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                </BlurredContent>
+                      </div>
+                    ))}
+                  </div>
+                </section>
 
                 {/* エージェント紹介 */}
                 {matchedAgents.length > 0 && (
@@ -1404,35 +1222,6 @@ export default function Home() {
           </div>
         )}
       </main>
-
-      {/* PDFダウンロードセクション */}
-      {hasAnyReport && (
-        <section className="max-w-4xl mx-auto px-6 mt-12">
-          <div className="border border-stone-200 bg-white p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-stone-500 tracking-widest mb-1">EXPORT</p>
-                <p className="text-sm font-medium text-stone-800">分析結果をPDFで保存</p>
-                <p className="text-xs text-stone-500 mt-1">
-                  {[
-                    positionAnalysis && 'ポジション分析',
-                    questions.length > 0 && `想定質問${questions.length}問`,
-                    correctionResult && '添削結果',
-                    marketEvaluation && '市場評価',
-                  ].filter(Boolean).join(' / ')}
-                </p>
-              </div>
-              <button
-                onClick={handleDownloadPdf}
-                className="inline-flex items-center gap-2 bg-stone-800 text-white px-5 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                PDFダウンロード
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* フッター */}
       <footer className="border-t border-stone-200 mt-16">
