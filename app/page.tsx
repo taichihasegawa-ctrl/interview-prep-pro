@@ -732,15 +732,34 @@ export default function Home() {
         {/* 想定質問タブ */}
         {activeTab === 'questions' && (
           <div>
-            {questions.length === 0 ? (
+            {questions.length === 0 && !questionLoading ? (
               <div className="py-16 text-center">
-                <p className="text-stone-500 text-sm mb-4">質問が生成されていません</p>
-                <button
-                  onClick={() => setActiveTab('prepare')}
-                  className="text-sm text-teal-700 hover:text-teal-800 underline underline-offset-2"
-                >
-                  準備タブで情報を入力
-                </button>
+                <p className="text-sm text-stone-600 mb-2">求人情報をもとに想定質問を生成します</p>
+                {!jobInfo.trim() ? (
+                  <>
+                    <p className="text-xs text-stone-500 mb-4">まず求人情報を入力してください</p>
+                    <button
+                      onClick={() => setActiveTab('prepare')}
+                      className="text-sm text-teal-700 hover:text-teal-800 underline underline-offset-2"
+                    >
+                      準備タブへ
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleGenerateQuestions}
+                    className="mt-4 bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors inline-flex items-center gap-2"
+                  >
+                    想定質問を生成する
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ) : questionLoading ? (
+              <div className="py-16 text-center">
+                <Loader2 className="w-5 h-5 animate-spin text-stone-400 mx-auto mb-3" />
+                <p className="text-sm text-stone-600">想定質問を生成中...</p>
+                <p className="text-xs text-stone-500 mt-1">20〜30秒ほどかかります</p>
               </div>
             ) : (
               <div className="space-y-0">
