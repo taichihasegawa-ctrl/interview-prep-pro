@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { 
-  Loader2, ChevronDown, ChevronUp, ExternalLink, ArrowRight, Check, Lock, Download
+  Loader2, ChevronDown, ChevronUp, ExternalLink, ArrowRight, Check, Download
 } from 'lucide-react';
 import { downloadReportPdf } from '@/lib/generateReportPdf';
 
@@ -100,67 +100,8 @@ type MatchedAgent = {
   matchScore: number;
 };
 
-// Paywall Overlay コンポーネント
-function PaywallOverlay({ onPurchase }: { onPurchase: (plan: 'single' | 'pack') => void }) {
-  return (
-    <div className="relative mt-2">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-stone-50/80 to-stone-50 z-10" />
-      <div className="relative z-20 flex justify-center pt-8 pb-4">
-        <div className="bg-white border border-stone-200 shadow-sm max-w-sm w-full p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Lock className="w-4 h-4 text-stone-500" />
-            <p className="text-sm font-medium text-stone-800">全ての分析結果を見る</p>
-          </div>
-          <p className="text-xs text-stone-500 leading-relaxed mb-5">
-            ポジション分析の詳細、全ての想定質問と模範解答、添削の具体的な改善提案、市場評価の全データにアクセスできます。
-          </p>
-          <div className="space-y-3">
-            <button
-              onClick={() => onPurchase('single')}
-              className="w-full bg-stone-800 text-white py-3 text-sm font-medium hover:bg-stone-700 transition-colors"
-            >
-              ¥500 で開放する
-            </button>
-            <button
-              onClick={() => onPurchase('pack')}
-              className="w-full border border-stone-300 text-stone-700 py-3 text-sm hover:bg-stone-50 transition-colors"
-            >
-              <span>3回パック ¥1,200</span>
-              <span className="text-xs text-teal-700 ml-2">1回あたり¥400</span>
-            </button>
-          </div>
-          <p className="text-xs text-stone-400 text-center mt-3">Stripeによる安全な決済</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ぼかし付きチラ見せコンポーネント
-function BlurredContent({ children, isUnlocked, onPurchase, previewContent }: {
-  children: React.ReactNode;
-  isUnlocked: boolean;
-  onPurchase: (plan: 'single' | 'pack') => void;
-  previewContent?: React.ReactNode;
-}) {
-  if (isUnlocked) return <>{children}</>;
-  return (
-    <div>
-      {previewContent}
-      <div className="relative overflow-hidden" style={{ maxHeight: '200px' }}>
-        <div className="blur-sm opacity-60 pointer-events-none select-none">
-          {children}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-stone-50" />
-      </div>
-      <PaywallOverlay onPurchase={onPurchase} />
-    </div>
-  );
-}
-
 export default function Home() {
   const [activeTab, setActiveTab] = useState('prepare');
-  const [isUnlocked, setIsUnlocked] = useState(false);
   const [resumeText, setResumeText] = useState('');
   const [jobInfo, setJobInfo] = useState('');
   const [questionCount, setQuestionCount] = useState('7');
@@ -193,38 +134,6 @@ export default function Home() {
   const [positionError, setPositionError] = useState('');
 
   // 課金ハンドラ
-  const handlePurchase = async (plan: 'single' | 'pack') => {
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-    }
-  };
-
-  // URLパラメータから課金状態を確認（Stripe success_url からの復帰）
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('payment') === 'success') {
-        setIsUnlocked(true);
-        // URLからパラメータを削除
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-      // ローカルストレージから復元
-      const credits = localStorage.getItem('remaining_credits');
-      if (credits && parseInt(credits) > 0) {
-        setIsUnlocked(true);
-      }
-    }
-  });
   const sampleResume = `【学歴】
 2016年4月 - 2020年3月: 明治大学 商学部 卒業
 
@@ -714,8 +623,6 @@ export default function Home() {
                   <p className="text-xs text-stone-500 tracking-widest mb-3">POSITION REALITY</p>
                   <p className="text-lg font-medium text-stone-800 mb-3">{positionAnalysis.positionReality.title}</p>
                   <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.positionReality.summary}</p>
-
-                  <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
                     <div className="grid grid-cols-2 gap-6">
                       <div>
                         <p className="text-xs text-stone-500 mb-2">想定される1日の業務</p>
@@ -726,7 +633,6 @@ export default function Home() {
                         <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.teamContext}</p>
                       </div>
                     </div>
-                  </BlurredContent>
                 </section>
 
                 {/* 求人の行間を読む */}
@@ -734,7 +640,7 @@ export default function Home() {
                   <p className="text-xs text-stone-500 tracking-widest mb-4">READ BETWEEN THE LINES</p>
                   <p className="text-sm text-stone-600 mb-6">求人票の表現から読み取れること</p>
                   
-                  {/* 1つ目だけ無料表示 */}
+                  {/* 1つ目 */}
                   {positionAnalysis.readBetweenLines.length > 0 && (
                     <div className="space-y-6 mb-4">
                       <div className="grid grid-cols-12 gap-4">
@@ -753,9 +659,8 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 2つ目以降はぼかし */}
+                  {/* 2つ目以降 */}
                   {positionAnalysis.readBetweenLines.length > 1 && (
-                    <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
                       <div className="space-y-6">
                         {positionAnalysis.readBetweenLines.slice(1).map((item, i) => (
                           <div key={i} className="grid grid-cols-12 gap-4">
@@ -773,12 +678,10 @@ export default function Home() {
                           </div>
                         ))}
                       </div>
-                    </BlurredContent>
                   )}
                 </section>
 
                 {/* 面接で見られるポイント */}
-                <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
                   <section className="border-t border-stone-200 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
                     <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.interviewFocus.whatTheyReallyWant}</p>
@@ -860,7 +763,6 @@ export default function Home() {
                       </button>
                     </div>
                   </section>
-                </BlurredContent>
               </div>
             )}
           </div>
@@ -911,11 +813,8 @@ export default function Home() {
                 </div>
 
                 {questions.map((qa, i) => (
-                  <div key={i} className={i >= 2 && !isUnlocked ? '' : ''}>
-                    {i === 2 && !isUnlocked && (
-                      <PaywallOverlay onPurchase={handlePurchase} />
-                    )}
-                    <div className={`border-t border-stone-200 ${i >= 2 && !isUnlocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''}`}>
+                  <div key={i}>
+                    <div className="border-t border-stone-200">
                     <button
                       onClick={() => toggleQuestion(i)}
                       className="w-full py-4 text-left flex items-start justify-between hover:bg-stone-50/50 transition-colors"
@@ -1139,9 +1038,8 @@ export default function Home() {
                         <p className="text-xs text-stone-500">{correctionResult.corrections[0].reason}</p>
                       </div>
 
-                      {/* 2つ目以降 + Suggestions はぼかし */}
+                      {/* 2つ目以降 + Suggestions */}
                       {correctionResult.corrections.length > 1 && (
-                        <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
                           <div className="space-y-6">
                             {correctionResult.corrections.slice(1).map((c, i) => (
                               <div key={i} className="border-l-2 border-amber-500 pl-4">
@@ -1160,20 +1058,17 @@ export default function Home() {
                               </div>
                             ))}
                           </div>
-                        </BlurredContent>
                       )}
                     </div>
                   </div>
                 )}
 
-                {isUnlocked && (
-                  <button
-                    onClick={downloadCorrection}
-                    className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
-                  >
-                    結果をダウンロード
-                  </button>
-                )}
+                <button
+                  onClick={downloadCorrection}
+                  className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
+                >
+                  結果をダウンロード
+                </button>
               </div>
             )}
           </div>
@@ -1251,8 +1146,6 @@ export default function Home() {
                   </div>
                 </section>
 
-                {/* 有料: Strengths以降すべて */}
-                <BlurredContent isUnlocked={isUnlocked} onPurchase={handlePurchase}>
                   {/* 強み */}
                   <section>
                     <p className="text-xs text-stone-500 tracking-widest mb-4">STRENGTHS</p>
@@ -1309,8 +1202,6 @@ export default function Home() {
                       ))}
                     </div>
                   </section>
-                </BlurredContent>
-
                 {/* PDFレポートダウンロード */}
                 <section className="border-t border-stone-200 pt-8">
                   <div className="bg-stone-50 border border-stone-200 p-6">
