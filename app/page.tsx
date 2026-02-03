@@ -530,18 +530,21 @@ export default function Home() {
 
             <div className="pt-4">
               <button
-                onClick={handleGenerateQuestions}
-                disabled={questionLoading || !jobInfo.trim()}
+                onClick={() => {
+                  setActiveTab('position');
+                  handlePositionAnalysis();
+                }}
+                disabled={positionLoading || !jobInfo.trim()}
                 className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {questionLoading ? (
+                {positionLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    生成中...
+                    分析中...
                   </>
                 ) : (
                   <>
-                    質問を生成
+                    ポジションを分析する
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
