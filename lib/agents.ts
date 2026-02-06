@@ -1,7 +1,7 @@
 export interface Agent {
   id: string;
   name: string;
-  type: 'itSpecialist' | 'highClass' | 'general' | 'youngCareer';
+  type: 'itSpecialist' | 'highClass' | 'general' | 'youngCareer' | 'primary';
   tagline: string;
   description: string;
   features: string[];
@@ -15,6 +15,26 @@ export interface Agent {
 }
 
 export const agents: Agent[] = [
+  // 最優先エージェント（アフィリエイト提携済み）
+  {
+    id: 'agent-navi',
+    name: '転職AGENT Navi',
+    type: 'primary',
+    tagline: '約300人のアドバイザーから最適な担当者をマッチング',
+    description: '求職者と転職エージェントの完全無料マッチングサービス。あなたの性格や希望に合わせて、内定実績のある約300人のキャリアアドバイザーの中から最適な担当者を紹介します。',
+    features: [
+      '業界最大級！求人保有100,000件以上',
+      'Google評価★4.4以上の高評価',
+      '相性の良いアドバイザーに出会える',
+    ],
+    stats: [
+      { label: '求人数', value: '10万件+' },
+      { label: 'Google評価', value: '★4.4以上' }
+    ],
+    bestFor: ['20代', '転職2回以内', '今すぐ〜3か月以内に転職したい方'],
+    cta: '無料でアドバイザーを探す',
+    affiliateUrl: 'https://px.a8.net/svt/ejp?a8mat=4AX1ON+CIP6HM+5BJK+5Z6WY',
+  },
   {
     id: 'levtech',
     name: 'レバテックキャリア',
@@ -186,6 +206,20 @@ export function matchAgentsWithReasons(
   maxResults: number = 3
 ): MatchedAgent[] {
   const results: MatchedAgent[] = [];
+  
+  // 最優先: 転職AGENT Navi を必ず1番目に追加
+  const primaryAgent = agents.find(a => a.type === 'primary');
+  if (primaryAgent) {
+    results.push({
+      ...primaryAgent,
+      matchReasons: [
+        'あなたに合ったアドバイザーをマッチングしてくれる',
+        '10万件以上の求人から最適な案件を紹介',
+        '完全無料で相談できる',
+      ],
+      matchScore: 98,
+    });
+  }
   
   // 各タイプから該当するエージェントを選択
   const typeOrder: (keyof AgentMatchReasons)[] = ['itSpecialist', 'highClass', 'general', 'youngCareer'];
