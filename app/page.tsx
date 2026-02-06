@@ -676,6 +676,31 @@ export default function Home() {
                   <p className="text-sm text-stone-700 leading-relaxed">{quickDiagnosis.positionReality.summary}</p>
                 </section>
 
+                {/* NEXT STEP - エージェント導線ブリッジ */}
+                {quickAgents.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
+                    <div className="bg-gradient-to-r from-teal-50 to-stone-50 border border-teal-100 p-6">
+                      <p className="text-sm font-medium text-stone-800 mb-2">診断結果を活かすために</p>
+                      <p className="text-sm text-stone-600 leading-relaxed mb-4">
+                        {quickDiagnosis.matchScore >= 70 
+                          ? `マッチ度 ${quickDiagnosis.matchScore}% は高い適合度です。この強みをどう伝えるかで、選考通過率が大きく変わります。`
+                          : quickDiagnosis.matchScore >= 40
+                          ? `マッチ度 ${quickDiagnosis.matchScore}% には伸びしろがあります。経験の見せ方を工夫することで、評価を上げられる可能性があります。`
+                          : `現時点のマッチ度は ${quickDiagnosis.matchScore}% ですが、経歴の棚卸しと戦略次第で十分カバーできます。`
+                        }
+                      </p>
+                      <div className="flex items-center gap-2 text-teal-700">
+                        <ArrowRight className="w-4 h-4" />
+                        <p className="text-sm font-medium">転職エージェントに相談する（無料）</p>
+                      </div>
+                      <p className="text-xs text-stone-500 mt-2">
+                        書類の見せ方から面接対策まで、プロの視点でアドバイスがもらえます
+                      </p>
+                    </div>
+                  </section>
+                )}
+
                 {/* エージェント紹介 */}
                 {quickAgents.length > 0 && marketEvaluation && (
                   <section className="border-t border-stone-200 pt-8">
