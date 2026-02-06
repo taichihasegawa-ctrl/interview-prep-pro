@@ -100,6 +100,17 @@ type MatchedAgent = {
   matchScore: number;
 };
 
+type QuickDiagnosis = {
+  matchScore: number;
+  matchComment: string;
+  marketView: string;
+  instantValue: string[];
+  positionReality: {
+    title: string;
+    summary: string;
+  };
+};
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState('prepare');
   const [resumeText, setResumeText] = useState('');
@@ -117,11 +128,7 @@ export default function Home() {
   const [expandedQuestions, setExpandedQuestions] = useState<{[key: number]: boolean}>({});
   const [showModelAnswer, setShowModelAnswer] = useState<{[key: number]: boolean}>({});
   
-  const [correctionText, setCorrectionText] = useState('');
-  const [correctionFocus, setCorrectionFocus] = useState('overall');
   const [correctionResult, setCorrectionResult] = useState<CorrectionResult | null>(null);
-  const [correctionLoading, setCorrectionLoading] = useState(false);
-  const [correctionError, setCorrectionError] = useState('');
   
   const [marketEvaluation, setMarketEvaluation] = useState<MarketEvaluation | null>(null);
   const [matchedAgents, setMatchedAgents] = useState<MatchedAgent[]>([]);
@@ -132,6 +139,11 @@ export default function Home() {
   const [positionAnalysis, setPositionAnalysis] = useState<PositionAnalysis | null>(null);
   const [positionLoading, setPositionLoading] = useState(false);
   const [positionError, setPositionError] = useState('');
+
+  const [quickDiagnosis, setQuickDiagnosis] = useState<QuickDiagnosis | null>(null);
+  const [quickLoading, setQuickLoading] = useState(false);
+  const [quickError, setQuickError] = useState('');
+  const [quickAgents, setQuickAgents] = useState<MatchedAgent[]>([]);
 
   // 課金ハンドラ
   const sampleResume = `【学歴】
@@ -234,36 +246,6 @@ export default function Home() {
     }
   };
 
-  const handleCorrection = async () => {
-    const text = correctionText || resumeText;
-    if (!text.trim()) {
-      setCorrectionError('添削対象のテキストを入力してください');
-      return;
-    }
-    setCorrectionLoading(true);
-    setCorrectionError('');
-    setCorrectionResult(null);
-    try {
-      const res = await fetch('/api/correct-document', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentText: text,
-          focus: correctionFocus,
-          jobInfo: jobInfo || undefined,
-          positionAnalysis: positionAnalysis || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
-      setCorrectionResult(data);
-    } catch (error) {
-      setCorrectionError(error instanceof Error ? error.message : 'エラーが発生しました');
-    } finally {
-      setCorrectionLoading(false);
-    }
-  };
-
   const handleMarketEvaluation = async () => {
     if (!resumeText.trim()) {
       setMarketError('職務経歴を入力してください');
@@ -323,26 +305,6 @@ export default function Home() {
     a.click();
   };
 
-  const downloadCorrection = () => {
-    if (!correctionResult) return;
-    let text = '添削結果\n' + '='.repeat(50) + '\n\n【総合評価】\n' + correctionResult.summary + '\n\n';
-    if (correctionResult.strengths?.length) {
-      text += '【強み】\n';
-      correctionResult.strengths.forEach(s => text += `・${s}\n`);
-    }
-    if (correctionResult.corrections?.length) {
-      text += '\n【改善提案】\n';
-      correctionResult.corrections.forEach((c, i) => {
-        text += `\n${i + 1}. ${c.type}\n改善前: ${c.before}\n改善後: ${c.after}\n理由: ${c.reason}\n`;
-      });
-    }
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = '添削結果.txt';
-    a.click();
-  };
-
   const goToMarketTab = () => {
     setShowMarketPrompt(false);
     setActiveTab('market');
@@ -358,6 +320,49 @@ export default function Home() {
       marketEvaluation,
       positionTitle: positionAnalysis?.positionReality?.title || jobInfo.split('\n')[0]?.replace(/【.*?】/, '').trim(),
     });
+  };
+
+  // クイック診断
+  const handleQuickDiagnosis = async () => {
+    if (!resumeText.trim() || !jobInfo.trim()) {
+      setQuickError('職務経歴と求人情報の両方を入力してください');
+      return;
+    }
+    setQuickLoading(true);
+    setQuickError('');
+    setQuickDiagnosis(null);
+    setQuickAgents([]);
+    try {
+      // クイック診断APIとマーケット評価APIを並列呼び出し
+      const [quickRes, marketRes] = await Promise.all([
+        fetch('/api/quick-diagnosis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeText, jobInfo }),
+        }),
+        fetch('/api/market-evaluation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeText, jobInfo }),
+        }),
+      ]);
+      const quickData = await quickRes.json();
+      if (!quickRes.ok) throw new Error(quickData.error || 'エラーが発生しました');
+      setQuickDiagnosis(quickData);
+
+      if (marketRes.ok) {
+        const marketData = await marketRes.json();
+        setMarketEvaluation(marketData);
+        const agentsModule = await import('@/lib/agents');
+        const matched = agentsModule.matchAgentsWithReasons(marketData.agentMatchReasons, 3);
+        setMatchedAgents(matched);
+        setQuickAgents(matched);
+      }
+    } catch (error) {
+      setQuickError(error instanceof Error ? error.message : 'エラーが発生しました');
+    } finally {
+      setQuickLoading(false);
+    }
   };
 
   const handlePositionAnalysis = async () => {
@@ -432,6 +437,7 @@ export default function Home() {
           <div className="flex gap-8">
             {[
               { id: 'prepare', label: '準備' },
+              { id: 'quick', label: 'クイック診断' },
               { id: 'position', label: 'ポジション分析' },
               { id: 'questions', label: '想定質問' },
               { id: 'market', label: '市場評価' },
@@ -548,28 +554,232 @@ export default function Home() {
             <div className="pt-4">
               <button
                 onClick={() => {
-                  setActiveTab('position');
-                  handlePositionAnalysis();
+                  setActiveTab('quick');
+                  handleQuickDiagnosis();
                 }}
-                disabled={positionLoading || !jobInfo.trim()}
+                disabled={quickLoading || !jobInfo.trim() || !resumeText.trim()}
                 className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {positionLoading ? (
+                {quickLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    分析中...
+                    診断中...
                   </>
                 ) : (
                   <>
-                    ポジションを分析する
+                    クイック診断する
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
-              {!jobInfo.trim() && (
-                <p className="text-xs text-stone-500 mt-2">※ 求人情報を入力してください</p>
+              {(!jobInfo.trim() || !resumeText.trim()) && (
+                <p className="text-xs text-stone-500 mt-2">※ 職務経歴と求人情報の両方を入力してください</p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* クイック診断タブ */}
+        {activeTab === 'quick' && (
+          <div>
+            {(!resumeText.trim() || !jobInfo.trim()) ? (
+              <div className="py-16 text-center">
+                <p className="text-stone-500 text-sm mb-4">職務経歴と求人情報を入力してください</p>
+                <button
+                  onClick={() => setActiveTab('prepare')}
+                  className="text-sm text-teal-700 hover:text-teal-800 underline underline-offset-2"
+                >
+                  準備タブへ
+                </button>
+              </div>
+            ) : quickLoading ? (
+              <div className="py-16 text-center">
+                <Loader2 className="w-6 h-6 animate-spin text-stone-400 mx-auto mb-4" />
+                <p className="text-sm text-stone-600">クイック診断中...</p>
+                <p className="text-xs text-stone-500 mt-1">30〜40秒ほどかかります</p>
+              </div>
+            ) : quickError && !quickDiagnosis ? (
+              <div className="py-16 text-center">
+                <p className="text-sm text-red-700 mb-4">{quickError}</p>
+                <button
+                  onClick={handleQuickDiagnosis}
+                  className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors"
+                >
+                  再診断する
+                </button>
+              </div>
+            ) : !quickDiagnosis ? (
+              <div className="py-16 text-center">
+                <p className="text-sm text-stone-600 mb-6">
+                  あなたの経歴と求人の適合度を素早く診断します
+                </p>
+                <button
+                  onClick={handleQuickDiagnosis}
+                  className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors inline-flex items-center gap-2"
+                >
+                  クイック診断する
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-10">
+
+                {/* マッチ度 */}
+                <section>
+                  <p className="text-xs text-stone-500 tracking-widest mb-6">MATCH SCORE</p>
+                  <div className="flex items-center gap-8">
+                    <div className="relative w-32 h-32">
+                      <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="50" stroke="#e7e5e4" strokeWidth="8" fill="none" />
+                        <circle
+                          cx="60" cy="60" r="50"
+                          stroke={quickDiagnosis.matchScore >= 70 ? '#0d9488' : quickDiagnosis.matchScore >= 40 ? '#f59e0b' : '#ef4444'}
+                          strokeWidth="8"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeDasharray={`${quickDiagnosis.matchScore * 3.14} 314`}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl font-semibold text-stone-800">{quickDiagnosis.matchScore}<span className="text-lg text-stone-500">%</span></span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-lg font-medium text-stone-800 mb-2">応募企業とのマッチ度</p>
+                      <p className="text-sm text-stone-600 leading-relaxed">{quickDiagnosis.matchComment}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 市場評価サマリー */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">MARKET VIEW</p>
+                  <p className="text-sm text-stone-800 leading-relaxed mb-6">{quickDiagnosis.marketView}</p>
+
+                  <div>
+                    <p className="text-xs text-stone-500 mb-3">即戦力として評価されやすい経験</p>
+                    <div className="space-y-2">
+                      {quickDiagnosis.instantValue.map((v, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <Check className="w-3 h-3 text-teal-600 mt-1 flex-shrink-0" />
+                          <p className="text-sm text-stone-700">{v}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* ポジションの実態 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">POSITION REALITY</p>
+                  <p className="text-lg font-medium text-stone-800 mb-3">{quickDiagnosis.positionReality.title}</p>
+                  <p className="text-sm text-stone-700 leading-relaxed">{quickDiagnosis.positionReality.summary}</p>
+                </section>
+
+                {/* エージェント紹介 */}
+                {quickAgents.length > 0 && marketEvaluation && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-2">RECOMMENDED AGENTS</p>
+                    <p className="text-sm text-stone-600 mb-6">あなたの経歴から分析した相性の良いエージェント</p>
+                    
+                    {/* プロファイルサマリー */}
+                    <div className="bg-stone-100 p-4 mb-6">
+                      <p className="text-xs text-stone-500 mb-2">あなたのプロファイル</p>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {marketEvaluation.profileSummary.uniqueStrengths.map((s, i) => (
+                          <span key={i} className="text-xs text-stone-700 bg-white px-2 py-1 border border-stone-200">{s}</span>
+                        ))}
+                      </div>
+                      <div className="flex gap-6 text-xs text-stone-600">
+                        <span>{marketEvaluation.profileSummary.jobCategory}</span>
+                        <span>{marketEvaluation.profileSummary.experienceYears}</span>
+                        <span>{marketEvaluation.profileSummary.estimatedSalaryRange}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0">
+                      {quickAgents.map((agent, i) => (
+                        <div key={agent.id} className="border-t border-stone-200 py-6">
+                          <div className="flex items-start gap-4">
+                            <span className="text-lg font-light text-stone-400">{i + 1}</span>
+                            <div className="flex-1">
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <h4 className="text-sm font-medium text-stone-800">{agent.name}</h4>
+                                <span className="text-xs text-stone-500">{agent.tagline}</span>
+                              </div>
+                              <p className="text-sm text-stone-600 mb-4">{agent.description}</p>
+                              
+                              <div className="border-l-2 border-teal-600 pl-4 mb-4">
+                                <p className="text-xs text-stone-500 mb-2">あなたとの相性</p>
+                                <ul className="space-y-1">
+                                  {agent.matchReasons.map((reason, j) => (
+                                    <li key={j} className="text-sm text-stone-700 flex items-start gap-2">
+                                      <Check className="w-3 h-3 text-teal-600 mt-1 flex-shrink-0" />
+                                      {reason}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              <div className="flex items-center gap-6 mb-4">
+                                {agent.stats.map((stat, j) => (
+                                  <div key={j}>
+                                    <span className="text-sm font-medium text-stone-800">{stat.value}</span>
+                                    <span className="text-xs text-stone-500 ml-1">{stat.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <a
+                                href={agent.affiliateUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm text-teal-700 hover:text-teal-800 font-medium"
+                              >
+                                {agent.cta}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-xs text-stone-400 mt-6 text-center">
+                      ※ エージェントの選定は経歴分析に基づく参考情報です
+                    </p>
+                  </section>
+                )}
+
+                {/* 詳細分析への誘導 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">DEEP ANALYSIS</p>
+                  <p className="text-sm text-stone-600 mb-4">より詳細な分析で面接準備を万全に</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setActiveTab('position');
+                        if (!positionAnalysis) handlePositionAnalysis();
+                      }}
+                      className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
+                    >
+                      ポジション詳細分析
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('questions');
+                        if (questions.length === 0) handleGenerateQuestions();
+                      }}
+                      className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors flex items-center gap-2"
+                    >
+                      想定質問を生成
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         )}
 
