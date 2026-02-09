@@ -109,6 +109,10 @@ type QuickDiagnosis = {
     title: string;
     summary: string;
   };
+  interviewFocus?: {
+    point: string;
+    reason: string;
+  }[];
 };
 
 export default function Home() {
@@ -781,6 +785,22 @@ export default function Home() {
                   <p className="text-lg font-medium text-stone-800 mb-3">{quickDiagnosis.positionReality.title}</p>
                   <p className="text-sm text-stone-700 leading-relaxed">{quickDiagnosis.positionReality.summary}</p>
                 </section>
+
+                {/* 面接で確認されそうなポイント */}
+                {quickDiagnosis.interviewFocus && quickDiagnosis.interviewFocus.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
+                    <p className="text-sm text-stone-600 mb-4">面接で確認されそうなポイント</p>
+                    <div className="space-y-4">
+                      {quickDiagnosis.interviewFocus.map((item, i) => (
+                        <div key={i} className="border-l-2 border-amber-500 pl-4">
+                          <p className="text-sm font-medium text-stone-800 mb-1">{item.point}</p>
+                          <p className="text-xs text-stone-500">{item.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
                 {/* NEXT STEP - 詳細分析への誘導 */}
                 <section className="border-t border-stone-200 pt-8">

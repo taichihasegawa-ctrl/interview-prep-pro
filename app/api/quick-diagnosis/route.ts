@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
+      max_tokens: 2500,
       messages: [
         {
           role: 'user',
@@ -38,7 +38,21 @@ ${jobInfo}
   "positionReality": {
     "title": "<求人の本質を突いた1行タイトル>",
     "summary": "<このポジションの実態を3-4文で。求人票の表面的な記載ではなく、実際に何が求められるかを分析>"
-  }
+  },
+  "interviewFocus": [
+    {
+      "point": "<面接で確認されそうなポイント1（例：チーム連携の経験）>",
+      "reason": "<なぜ企業がこのポイントを確認したいのか、1文で>"
+    },
+    {
+      "point": "<面接で確認されそうなポイント2>",
+      "reason": "<理由>"
+    },
+    {
+      "point": "<面接で確認されそうなポイント3>",
+      "reason": "<理由>"
+    }
+  ]
 }`
         }
       ]
