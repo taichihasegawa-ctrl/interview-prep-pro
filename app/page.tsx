@@ -1393,8 +1393,16 @@ export default function Home() {
       {/* フッター */}
       <footer className="border-t border-stone-200 mt-16">
         <div className="max-w-4xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-center gap-6 mb-3">
+            <a href="/privacy" className="text-xs text-stone-500 hover:text-stone-700">
+              プライバシーポリシー
+            </a>
+            <a href="/terms" className="text-xs text-stone-500 hover:text-stone-700">
+              利用規約
+            </a>
+          </div>
           <p className="text-xs text-stone-400 text-center">
-            Interview Preparation Tool
+            © 2025 InterviewCraft
           </p>
         </div>
       </footer>
