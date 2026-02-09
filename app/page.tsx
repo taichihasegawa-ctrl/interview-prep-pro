@@ -143,9 +143,60 @@ export default function Home() {
   const [quickDiagnosis, setQuickDiagnosis] = useState<QuickDiagnosis | null>(null);
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickError, setQuickError] = useState('');
+
+  // 課金状態（現在は全機能無料開放）
+  const [isPaid, setIsPaid] = useState(true);  // TODO: 有料化時にfalseに戻す
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quickAgents, setQuickAgents] = useState<MatchedAgent[]>([]);
 
-  // 課金ハンドラ
+  // 決済状態の確認（URL パラメータとlocalStorage）
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      // URLパラメータから決済完了を確認
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('payment') === 'success') {
+        setIsPaid(true);
+        localStorage.setItem('interview_paid', 'true');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      // localStorageから復元
+      if (localStorage.getItem('interview_paid') === 'true') {
+        setIsPaid(true);
+      }
+    }
+  });
+
+  // 有料タブへのアクセス制御
+  const handlePaidTabAccess = (tabId: string) => {
+    if (isPaid || tabId === 'prepare' || tabId === 'quick') {
+      setActiveTab(tabId);
+      return true;
+    }
+    setShowPaywall(true);
+    return false;
+  };
+
+  // Stripe Checkout
+  const handleCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnUrl: window.location.origin }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   const sampleResume = `【学歴】
 2016年4月 - 2020年3月: 明治大学 商学部 卒業
 
@@ -391,6 +442,60 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50">
+      {/* ペイウォールモーダル */}
+      {showPaywall && (
+        <div className="fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-sm w-full p-6 border border-stone-200">
+            <p className="text-xs text-stone-500 tracking-widest mb-2">PREMIUM ANALYSIS</p>
+            <h3 className="text-lg font-medium text-stone-800 mb-3">詳細分析を利用する</h3>
+            <p className="text-sm text-stone-600 leading-relaxed mb-4">
+              ポジション分析・想定質問生成・市場評価の詳細版・PDFレポート出力が利用できます。
+            </p>
+            <ul className="text-sm text-stone-600 mb-6 space-y-2">
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-teal-600" />
+                ポジション詳細分析
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-teal-600" />
+                想定質問＆模範解答生成
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-teal-600" />
+                市場評価レポート
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-teal-600" />
+                PDF出力
+              </li>
+            </ul>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading}
+                className="flex-1 bg-stone-800 text-white py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    処理中...
+                  </>
+                ) : (
+                  '¥500 で利用する'
+                )}
+              </button>
+              <button
+                onClick={() => setShowPaywall(false)}
+                className="flex-1 border border-stone-300 text-stone-600 py-3 text-sm hover:bg-stone-50 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+            <p className="text-xs text-stone-400 text-center mt-3">Apple Pay / Google Pay / カード対応</p>
+          </div>
+        </div>
+      )}
+
       {/* モーダル */}
       {showMarketPrompt && (
         <div className="fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4">
@@ -436,22 +541,23 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex gap-8">
             {[
-              { id: 'prepare', label: '準備' },
-              { id: 'quick', label: 'クイック診断' },
-              { id: 'position', label: 'ポジション分析' },
-              { id: 'questions', label: '想定質問' },
-              { id: 'market', label: '市場評価' },
+              { id: 'prepare', label: '準備', free: true },
+              { id: 'quick', label: 'クイック診断', free: true },
+              { id: 'position', label: 'ポジション分析', free: false },
+              { id: 'questions', label: '想定質問', free: false },
+              { id: 'market', label: '市場評価', free: false },
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-3 text-sm border-b-2 transition-colors ${
+                onClick={() => handlePaidTabAccess(tab.id)}
+                className={`py-3 text-sm border-b-2 transition-colors flex items-center gap-1 ${
                   activeTab === tab.id
                     ? 'border-stone-800 text-stone-800 font-medium'
                     : 'border-transparent text-stone-500 hover:text-stone-700'
                 }`}
               >
                 {tab.label}
+                {!tab.free && !isPaid && <span className="text-xs text-amber-600">PRO</span>}
               </button>
             ))}
           </div>
@@ -680,25 +786,36 @@ export default function Home() {
                 <section className="border-t border-stone-200 pt-8">
                   <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
                   <p className="text-sm text-stone-600 mb-4">より詳細な分析で面接準備を万全に</p>
+                  {!isPaid && (
+                    <div className="bg-gradient-to-r from-amber-50 to-stone-50 border border-amber-100 p-4 mb-4">
+                      <p className="text-sm text-stone-700">
+                        <span className="font-medium">¥500</span> で全ての詳細分析機能が利用できます
+                      </p>
+                    </div>
+                  )}
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
-                        setActiveTab('position');
-                        if (!positionAnalysis) handlePositionAnalysis();
+                        if (handlePaidTabAccess('position')) {
+                          if (!positionAnalysis) handlePositionAnalysis();
+                        }
                       }}
                       className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
                     >
                       ポジション詳細分析
+                      {!isPaid && <span className="text-xs text-amber-300">PRO</span>}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => {
-                        setActiveTab('questions');
-                        if (questions.length === 0) handleGenerateQuestions();
+                        if (handlePaidTabAccess('questions')) {
+                          if (questions.length === 0) handleGenerateQuestions();
+                        }
                       }}
                       className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors flex items-center gap-2"
                     >
                       想定質問を生成
+                      {!isPaid && <span className="text-xs text-amber-600">PRO</span>}
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
