@@ -676,109 +676,9 @@ export default function Home() {
                   <p className="text-sm text-stone-700 leading-relaxed">{quickDiagnosis.positionReality.summary}</p>
                 </section>
 
-                {/* NEXT STEP - エージェント導線ブリッジ */}
-                {quickAgents.length > 0 && (
-                  <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
-                    <div className="bg-gradient-to-r from-teal-50 to-stone-50 border border-teal-100 p-6">
-                      <p className="text-sm font-medium text-stone-800 mb-2">診断結果を活かすために</p>
-                      <p className="text-sm text-stone-600 leading-relaxed mb-4">
-                        {quickDiagnosis.matchScore >= 70 
-                          ? `マッチ度 ${quickDiagnosis.matchScore}% は高い適合度です。この強みをどう伝えるかで、選考通過率が大きく変わります。`
-                          : quickDiagnosis.matchScore >= 40
-                          ? `マッチ度 ${quickDiagnosis.matchScore}% には伸びしろがあります。経験の見せ方を工夫することで、評価を上げられる可能性があります。`
-                          : `現時点のマッチ度は ${quickDiagnosis.matchScore}% ですが、経歴の棚卸しと戦略次第で十分カバーできます。`
-                        }
-                      </p>
-                      <div className="flex items-center gap-2 text-teal-700">
-                        <ArrowRight className="w-4 h-4" />
-                        <p className="text-sm font-medium">転職エージェントに相談する（無料）</p>
-                      </div>
-                      <p className="text-xs text-stone-500 mt-2">
-                        書類の見せ方から面接対策まで、プロの視点でアドバイスがもらえます
-                      </p>
-                    </div>
-                  </section>
-                )}
-
-                {/* エージェント紹介 */}
-                {quickAgents.length > 0 && marketEvaluation && (
-                  <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-2">RECOMMENDED AGENTS</p>
-                    <p className="text-sm text-stone-600 mb-6">あなたの経歴から分析した相性の良いエージェント</p>
-                    
-                    {/* プロファイルサマリー */}
-                    <div className="bg-stone-100 p-4 mb-6">
-                      <p className="text-xs text-stone-500 mb-2">あなたのプロファイル</p>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {marketEvaluation.profileSummary.uniqueStrengths.map((s, i) => (
-                          <span key={i} className="text-xs text-stone-700 bg-white px-2 py-1 border border-stone-200">{s}</span>
-                        ))}
-                      </div>
-                      <div className="flex gap-6 text-xs text-stone-600">
-                        <span>{marketEvaluation.profileSummary.jobCategory}</span>
-                        <span>{marketEvaluation.profileSummary.experienceYears}</span>
-                        <span>{marketEvaluation.profileSummary.estimatedSalaryRange}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-0">
-                      {quickAgents.map((agent, i) => (
-                        <div key={agent.id} className="border-t border-stone-200 py-6">
-                          <div className="flex items-start gap-4">
-                            <span className="text-lg font-light text-stone-400">{i + 1}</span>
-                            <div className="flex-1">
-                              <div className="flex items-baseline gap-2 mb-1">
-                                <h4 className="text-sm font-medium text-stone-800">{agent.name}</h4>
-                                <span className="text-xs text-stone-500">{agent.tagline}</span>
-                              </div>
-                              <p className="text-sm text-stone-600 mb-4">{agent.description}</p>
-                              
-                              <div className="border-l-2 border-teal-600 pl-4 mb-4">
-                                <p className="text-xs text-stone-500 mb-2">あなたとの相性</p>
-                                <ul className="space-y-1">
-                                  {agent.matchReasons.map((reason, j) => (
-                                    <li key={j} className="text-sm text-stone-700 flex items-start gap-2">
-                                      <Check className="w-3 h-3 text-teal-600 mt-1 flex-shrink-0" />
-                                      {reason}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-
-                              <div className="flex items-center gap-6 mb-4">
-                                {agent.stats.map((stat, j) => (
-                                  <div key={j}>
-                                    <span className="text-sm font-medium text-stone-800">{stat.value}</span>
-                                    <span className="text-xs text-stone-500 ml-1">{stat.label}</span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              <a
-                                href={agent.affiliateUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm text-teal-700 hover:text-teal-800 font-medium"
-                              >
-                                {agent.cta}
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <p className="text-xs text-stone-400 mt-6 text-center">
-                      ※ エージェントの選定は経歴分析に基づく参考情報です
-                    </p>
-                  </section>
-                )}
-
-                {/* 詳細分析への誘導 */}
+                {/* NEXT STEP - 詳細分析への誘導 */}
                 <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-4">DEEP ANALYSIS</p>
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
                   <p className="text-sm text-stone-600 mb-4">より詳細な分析で面接準備を万全に</p>
                   <div className="flex gap-3">
                     <button
@@ -803,6 +703,16 @@ export default function Home() {
                     </button>
                   </div>
                 </section>
+
+                {/* エージェント紹介（将来実装用・現在非表示）
+                {quickAgents.length > 0 && marketEvaluation && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-2">RECOMMENDED AGENTS</p>
+                    ...
+                  </section>
+                )}
+                */}
+
               </div>
             )}
           </div>
@@ -1329,80 +1239,14 @@ export default function Home() {
                   </div>
                 </section>
 
-                {/* エージェント紹介 */}
+                {/* エージェント紹介（将来実装用・現在非表示）
                 {matchedAgents.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-2">RECOMMENDED AGENTS</p>
-                    <p className="text-sm text-stone-600 mb-6">あなたの経歴から分析した相性の良いエージェント</p>
-                    
-                    {/* プロファイルサマリー */}
-                    <div className="bg-stone-100 p-4 mb-6">
-                      <p className="text-xs text-stone-500 mb-2">あなたのプロファイル</p>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {marketEvaluation.profileSummary.uniqueStrengths.map((s, i) => (
-                          <span key={i} className="text-xs text-stone-700 bg-white px-2 py-1 border border-stone-200">{s}</span>
-                        ))}
-                      </div>
-                      <div className="flex gap-6 text-xs text-stone-600">
-                        <span>{marketEvaluation.profileSummary.jobCategory}</span>
-                        <span>{marketEvaluation.profileSummary.experienceYears}</span>
-                        <span>{marketEvaluation.profileSummary.estimatedSalaryRange}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-0">
-                      {matchedAgents.map((agent, i) => (
-                        <div key={agent.id} className="border-t border-stone-200 py-6">
-                          <div className="flex items-start gap-4">
-                            <span className="text-lg font-light text-stone-400">{i + 1}</span>
-                            <div className="flex-1">
-                              <div className="flex items-baseline gap-2 mb-1">
-                                <h4 className="text-sm font-medium text-stone-800">{agent.name}</h4>
-                                <span className="text-xs text-stone-500">{agent.tagline}</span>
-                              </div>
-                              <p className="text-sm text-stone-600 mb-4">{agent.description}</p>
-                              
-                              <div className="border-l-2 border-teal-600 pl-4 mb-4">
-                                <p className="text-xs text-stone-500 mb-2">あなたとの相性</p>
-                                <ul className="space-y-1">
-                                  {agent.matchReasons.map((reason, j) => (
-                                    <li key={j} className="text-sm text-stone-700 flex items-start gap-2">
-                                      <Check className="w-3 h-3 text-teal-600 mt-1 flex-shrink-0" />
-                                      {reason}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-
-                              <div className="flex items-center gap-6 mb-4">
-                                {agent.stats.map((stat, j) => (
-                                  <div key={j}>
-                                    <span className="text-sm font-medium text-stone-800">{stat.value}</span>
-                                    <span className="text-xs text-stone-500 ml-1">{stat.label}</span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              <a
-                                href={agent.affiliateUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm text-teal-700 hover:text-teal-800 font-medium"
-                              >
-                                {agent.cta}
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <p className="text-xs text-stone-400 mt-6 text-center">
-                      ※ エージェントの選定は経歴分析に基づく参考情報です
-                    </p>
+                    ...
                   </section>
                 )}
+                */}
               </div>
             )}
           </div>
