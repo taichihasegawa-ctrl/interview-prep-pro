@@ -19,15 +19,15 @@ export default function Tokushoho() {
             <tbody>
               <tr className="border-b border-stone-200">
                 <th className="py-4 pr-4 text-left font-medium text-stone-700 w-1/3 align-top">運営統括責任者</th>
-                <td className="py-4 text-stone-700">［氏名を入力］</td>
+                <td className="py-4 text-stone-700">Taichi Hasegawa</td>
               </tr>
               <tr className="border-b border-stone-200">
                 <th className="py-4 pr-4 text-left font-medium text-stone-700 align-top">所在地</th>
-                <td className="py-4 text-stone-700">［住所を入力］</td>
+                <td className="py-4 text-stone-700">請求があった場合に遅滞なく開示いたします</td>
               </tr>
               <tr className="border-b border-stone-200">
                 <th className="py-4 pr-4 text-left font-medium text-stone-700 align-top">電話番号</th>
-                <td className="py-4 text-stone-700">［電話番号を入力］<br /><span className="text-xs text-stone-500">※お問い合わせはメールにてお願いいたします</span></td>
+                <td className="py-4 text-stone-700">請求があった場合に遅滞なく開示いたします</td>
               </tr>
               <tr className="border-b border-stone-200">
                 <th className="py-4 pr-4 text-left font-medium text-stone-700 align-top">メールアドレス</th>
@@ -71,6 +71,14 @@ export default function Tokushoho() {
 
       <footer className="border-t border-stone-200 mt-16">
         <div className="max-w-3xl mx-auto px-6 py-6">
+          <div className="text-center mb-4">
+            <a 
+              href="/" 
+              className="inline-flex items-center gap-2 text-sm text-stone-600 hover:text-stone-800 border border-stone-300 px-4 py-2 hover:bg-stone-100 transition-colors"
+            >
+              ← トップページへ戻る
+            </a>
+          </div>
           <p className="text-xs text-stone-400 text-center">
             © 2025 InterviewCraft
           </p>
