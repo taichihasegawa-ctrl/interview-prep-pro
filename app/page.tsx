@@ -119,12 +119,14 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('prepare');
   const [resumeText, setResumeText] = useState('');
   const [jobInfo, setJobInfo] = useState('');
-  const [questionCount, setQuestionCount] = useState('7');
-  const [interviewType, setInterviewType] = useState('balanced');
-  const [answerLength, setAnswerLength] = useState('medium');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionError, setQuestionError] = useState('');
+  
+  // 固定値
+  const questionCount = '7';
+  const interviewType = 'balanced';
+  const answerLength = 'medium';
   
   const [userAnswers, setUserAnswers] = useState<{[key: number]: string}>({});
   const [feedbacks, setFeedbacks] = useState<{[key: number]: PracticeFeedback}>({});
@@ -568,57 +570,6 @@ export default function Home() {
                 className="w-full h-40 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
                 placeholder="【企業名】株式会社テックイノベーション&#10;【職種】Webエンジニア&#10;【必須スキル】JavaScript, React"
               />
-            </div>
-
-            <div className="border-t border-stone-200 pt-8">
-              <button
-                onClick={() => {
-                  const el = document.getElementById('settings');
-                  if (el) el.classList.toggle('hidden');
-                }}
-                className="text-sm text-stone-600 hover:text-stone-800 flex items-center gap-1"
-              >
-                詳細設定
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              <div id="settings" className="hidden mt-4 grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs text-stone-500 mb-1.5">質問数</label>
-                  <select
-                    value={questionCount}
-                    onChange={(e) => setQuestionCount(e.target.value)}
-                    className="w-full p-2 bg-white border border-stone-200 text-sm focus:outline-none focus:border-stone-400"
-                  >
-                    <option value="5">5問</option>
-                    <option value="7">7問</option>
-                    <option value="10">10問</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-stone-500 mb-1.5">面接タイプ</label>
-                  <select
-                    value={interviewType}
-                    onChange={(e) => setInterviewType(e.target.value)}
-                    className="w-full p-2 bg-white border border-stone-200 text-sm focus:outline-none focus:border-stone-400"
-                  >
-                    <option value="balanced">バランス型</option>
-                    <option value="technical">技術重視</option>
-                    <option value="behavioral">人物重視</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-stone-500 mb-1.5">回答の長さ</label>
-                  <select
-                    value={answerLength}
-                    onChange={(e) => setAnswerLength(e.target.value)}
-                    className="w-full p-2 bg-white border border-stone-200 text-sm focus:outline-none focus:border-stone-400"
-                  >
-                    <option value="short">簡潔</option>
-                    <option value="medium">標準</option>
-                    <option value="long">詳細</option>
-                  </select>
-                </div>
-              </div>
             </div>
 
             {questionError && (
