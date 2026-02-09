@@ -138,7 +138,6 @@ export default function Home() {
   const [matchedAgents, setMatchedAgents] = useState<MatchedAgent[]>([]);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState('');
-  const [showMarketPrompt, setShowMarketPrompt] = useState(false);
 
   const [positionAnalysis, setPositionAnalysis] = useState<PositionAnalysis | null>(null);
   const [positionLoading, setPositionLoading] = useState(false);
@@ -265,9 +264,6 @@ export default function Home() {
       setQuestions(data.questions);
       setExpandedQuestions({ 0: true });
       setActiveTab('questions');
-      if (resumeText.trim()) {
-        setTimeout(() => setShowMarketPrompt(true), 1500);
-      }
     } catch (error) {
       setQuestionError(error instanceof Error ? error.message : 'エラーが発生しました');
     } finally {
@@ -358,12 +354,6 @@ export default function Home() {
     a.href = URL.createObjectURL(blob);
     a.download = '面接対策_想定質問.txt';
     a.click();
-  };
-
-  const goToMarketTab = () => {
-    setShowMarketPrompt(false);
-    setActiveTab('market');
-    handleMarketEvaluation();
   };
 
   // PDFレポートダウンロード
@@ -501,32 +491,6 @@ export default function Home() {
       )}
 
       {/* モーダル */}
-      {showMarketPrompt && (
-        <div className="fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-sm w-full p-6 border border-stone-200">
-            <p className="text-xs text-stone-500 tracking-widest mb-2">SUGGESTION</p>
-            <h3 className="text-lg font-medium text-stone-800 mb-3">市場評価を確認する</h3>
-            <p className="text-sm text-stone-600 leading-relaxed mb-6">
-              あなたの経歴が転職市場でどのように評価されるか、客観的な視点で分析します。
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={goToMarketTab}
-                className="flex-1 bg-stone-800 text-white py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors"
-              >
-                分析する
-              </button>
-              <button
-                onClick={() => setShowMarketPrompt(false)}
-                className="flex-1 border border-stone-300 text-stone-600 py-2.5 text-sm hover:bg-stone-50 transition-colors"
-              >
-                後で
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ヘッダー */}
       <header className="border-b border-stone-200 bg-white">
         <div className="max-w-4xl mx-auto px-6 py-4">
@@ -1215,6 +1179,35 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+
+                {/* 市場評価への誘導 */}
+                {resumeText.trim() && (
+                  <section className="border-t border-stone-200 mt-8 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-3">NEXT STEP</p>
+                    <p className="text-sm text-stone-600 mb-4">あなたの経歴が市場でどう評価されるか確認しましょう</p>
+                    <button
+                      onClick={() => {
+                        if (handlePaidTabAccess('market')) {
+                          if (!marketEvaluation) handleMarketEvaluation();
+                        }
+                      }}
+                      disabled={marketLoading}
+                      className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {marketLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          分析中...
+                        </>
+                      ) : (
+                        <>
+                          市場評価を見る
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </section>
+                )}
               </div>
             )}
           </div>
