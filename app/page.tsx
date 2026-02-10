@@ -1344,9 +1344,6 @@ export default function Home() {
             <a href="/terms" className="text-xs text-stone-500 hover:text-stone-700">
               利用規約
             </a>
-            <a href="/tokushoho" className="text-xs text-stone-500 hover:text-stone-700">
-              特定商取引法に基づく表記
-            </a>
           </div>
           <p className="text-xs text-stone-400 text-center">
             © 2025 InterviewCraft
