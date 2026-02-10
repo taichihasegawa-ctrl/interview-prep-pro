@@ -1344,6 +1344,9 @@ export default function Home() {
             <a href="/terms" className="text-xs text-stone-500 hover:text-stone-700">
               利用規約
             </a>
+            <a href="mailto:interviewcraft.jp@gmail.com" className="text-xs text-stone-500 hover:text-stone-700">
+              お問い合わせ
+            </a>
           </div>
           <p className="text-xs text-stone-400 text-center">
             © 2025 InterviewCraft
