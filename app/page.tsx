@@ -18,9 +18,21 @@ type PositionAnalysis = {
     dayInLife: string;
     teamContext: string;
   };
-  readBetweenLines: {
-    surface: string;
-    insight: string;
+  hiddenContext: {
+    companyPains: {
+      pain: string;
+      evidence: string;
+      implication: string;
+    }[];
+    whyNow: {
+      primaryReason: string;
+      reasoning: string;
+    };
+  };
+  riskScenarios: {
+    scenario: string;
+    signals: string;
+    mitigation: string;
   }[];
   interviewFocus: {
     whatTheyReallyWant: string;
@@ -38,6 +50,11 @@ type PositionAnalysis = {
     gapToAddress: string;
     interviewStrategy: string;
   };
+  // 後方互換性のため（古い形式のデータでも動作するように）
+  readBetweenLines?: {
+    surface: string;
+    insight: string;
+  }[];
 };
 
 type ProfileSummary = {
@@ -149,8 +166,8 @@ export default function Home() {
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickError, setQuickError] = useState('');
 
-  // 課金状態（現在は全機能無料開放）
-  const [isPaid, setIsPaid] = useState(true);  // TODO: 有料化時にfalseに戻す
+  // 課金状態
+  const [isPaid, setIsPaid] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quickAgents, setQuickAgents] = useState<MatchedAgent[]>([]);
@@ -831,51 +848,88 @@ export default function Home() {
                     </div>
                 </section>
 
-                {/* 求人の行間を読む */}
-                <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-4">READ BETWEEN THE LINES</p>
-                  <p className="text-sm text-stone-600 mb-6">求人票の表現から読み取れること</p>
-                  
-                  {/* 1つ目 */}
-                  {positionAnalysis.readBetweenLines.length > 0 && (
-                    <div className="space-y-6 mb-4">
-                      <div className="grid grid-cols-12 gap-4">
-                        <div className="col-span-4">
-                          <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
-                          <p className="text-sm text-stone-600 italic">&ldquo;{positionAnalysis.readBetweenLines[0].surface}&rdquo;</p>
-                        </div>
-                        <div className="col-span-1 flex justify-center pt-4">
-                          <ArrowRight className="w-4 h-4 text-stone-400" />
-                        </div>
-                        <div className="col-span-7 border-l-2 border-teal-600 pl-4">
-                          <p className="text-xs text-stone-400 mb-1">読み解き</p>
-                          <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.readBetweenLines[0].insight}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2つ目以降 */}
-                  {positionAnalysis.readBetweenLines.length > 1 && (
-                      <div className="space-y-6">
-                        {positionAnalysis.readBetweenLines.slice(1).map((item, i) => (
-                          <div key={i} className="grid grid-cols-12 gap-4">
-                            <div className="col-span-4">
-                              <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
-                              <p className="text-sm text-stone-600 italic">&ldquo;{item.surface}&rdquo;</p>
-                            </div>
-                            <div className="col-span-1 flex justify-center pt-4">
-                              <ArrowRight className="w-4 h-4 text-stone-400" />
-                            </div>
-                            <div className="col-span-7 border-l-2 border-teal-600 pl-4">
-                              <p className="text-xs text-stone-400 mb-1">読み解き</p>
-                              <p className="text-sm text-stone-700 leading-relaxed">{item.insight}</p>
-                            </div>
+                {/* 企業の課題と採用理由 */}
+                {positionAnalysis.hiddenContext && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">HIDDEN CONTEXT</p>
+                    <p className="text-sm text-stone-600 mb-6">求人票から読み取れる企業の状況</p>
+                    
+                    {/* 企業の課題 */}
+                    <div className="mb-8">
+                      <p className="text-xs text-stone-500 mb-4">推測される企業の課題</p>
+                      <div className="space-y-4">
+                        {positionAnalysis.hiddenContext.companyPains.map((pain, i) => (
+                          <div key={i} className="border-l-2 border-teal-600 pl-4">
+                            <p className="text-sm font-medium text-stone-800 mb-1">{pain.pain}</p>
+                            <p className="text-xs text-stone-500 mb-1">根拠：「{pain.evidence}」</p>
+                            <p className="text-sm text-stone-600">{pain.implication}</p>
                           </div>
                         ))}
                       </div>
-                  )}
-                </section>
+                    </div>
+
+                    {/* 採用理由 */}
+                    <div className="bg-stone-100 p-4">
+                      <p className="text-xs text-stone-500 mb-2">なぜ今この採用なのか</p>
+                      <p className="text-sm font-medium text-stone-800 mb-1">{positionAnalysis.hiddenContext.whyNow.primaryReason}</p>
+                      <p className="text-sm text-stone-600">{positionAnalysis.hiddenContext.whyNow.reasoning}</p>
+                    </div>
+                  </section>
+                )}
+
+                {/* 後方互換：旧形式のreadBetweenLines */}
+                {!positionAnalysis.hiddenContext && positionAnalysis.readBetweenLines && positionAnalysis.readBetweenLines.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">READ BETWEEN THE LINES</p>
+                    <p className="text-sm text-stone-600 mb-6">求人票の表現から読み取れること</p>
+                    <div className="space-y-6">
+                      {positionAnalysis.readBetweenLines.map((item, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-4">
+                          <div className="col-span-4">
+                            <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
+                            <p className="text-sm text-stone-600 italic">&ldquo;{item.surface}&rdquo;</p>
+                          </div>
+                          <div className="col-span-1 flex justify-center pt-4">
+                            <ArrowRight className="w-4 h-4 text-stone-400" />
+                          </div>
+                          <div className="col-span-7 border-l-2 border-teal-600 pl-4">
+                            <p className="text-xs text-stone-400 mb-1">読み解き</p>
+                            <p className="text-sm text-stone-700 leading-relaxed">{item.insight}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* 地雷シナリオ */}
+                {positionAnalysis.riskScenarios && positionAnalysis.riskScenarios.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">RISK SCENARIOS</p>
+                    <p className="text-sm text-stone-600 mb-6">入社後に起こりうるリスクと確認ポイント</p>
+                    
+                    <div className="space-y-6">
+                      {positionAnalysis.riskScenarios.map((risk, i) => (
+                        <div key={i} className="border border-stone-200 p-4">
+                          <div className="flex items-start gap-3 mb-3">
+                            <span className="text-xs text-amber-600 font-mono bg-amber-50 px-2 py-0.5">リスク{i + 1}</span>
+                            <p className="text-sm font-medium text-stone-800">{risk.scenario}</p>
+                          </div>
+                          <div className="ml-12 space-y-2">
+                            <div>
+                              <p className="text-xs text-stone-500">シグナル</p>
+                              <p className="text-sm text-stone-600">{risk.signals}</p>
+                            </div>
+                            <div className="border-l-2 border-teal-600 pl-3">
+                              <p className="text-xs text-stone-500">面接で確認すべきこと</p>
+                              <p className="text-sm text-stone-700">{risk.mitigation}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
                 {/* 面接で見られるポイント */}
                   <section className="border-t border-stone-200 pt-8">

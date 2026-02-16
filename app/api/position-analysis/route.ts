@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `あなたは採用の裏側を熟知した元人事マネージャーです。
-以下の求人情報を深く分析し、求職者が求人票だけでは読み取れない「ポジションの実態」を言語化してください。
+    const prompt = `あなたは採用の裏側を熟知した元人事マネージャーであり、転職市場のアナリストです。
+以下の求人情報を深く分析し、求職者が求人票だけでは読み取れない「ポジションの実態」と「企業の本当の状況」を言語化してください。
 
 ${resumeText ? `また、応募者の経歴も参照し、このポジションとの接点を具体的に分析してください。` : ''}
 
@@ -26,7 +26,7 @@ ${resumeText ? `また、応募者の経歴も参照し、このポジション�
 - 推測は「〜と考えられます」「〜の可能性があります」と明記する
 - 断定的な表現は避ける
 - 建設的で、応募者が面接準備に活用できる情報を提供する
-- ネガティブすぎる推測は避ける
+- ネガティブすぎる推測は避けるが、リスクは正直に伝える
 
 # 求人情報
 ${jobInfo}
@@ -41,18 +41,44 @@ ${resumeText ? `# 応募者の経歴\n${resumeText}` : ''}
     "dayInLife": "このポジションの1日の業務イメージを具体的に（3-4文）",
     "teamContext": "想定されるチーム構成や報告ライン（2-3文）"
   },
-  "readBetweenLines": [
+  "hiddenContext": {
+    "companyPains": [
+      {
+        "pain": "企業が抱えていると推測される課題1",
+        "evidence": "求人票のどの文言からそう読み取れるか",
+        "implication": "この課題があなたの業務にどう影響するか（1-2文）"
+      },
+      {
+        "pain": "企業が抱えていると推測される課題2",
+        "evidence": "根拠となる文言",
+        "implication": "業務への影響"
+      },
+      {
+        "pain": "企業が抱えていると推測される課題3",
+        "evidence": "根拠となる文言",
+        "implication": "業務への影響"
+      }
+    ],
+    "whyNow": {
+      "primaryReason": "最も可能性が高い採用理由（例：事業拡大、欠員補充、新規事業、組織強化、業務過多の解消など）",
+      "reasoning": "なぜそう考えるか（2-3文）"
+    }
+  },
+  "riskScenarios": [
     {
-      "surface": "求人票に書いてある表現",
-      "insight": "その裏にある実態や意図（2-3文）"
+      "scenario": "地雷シナリオ1：入社後に起こりうるリスク",
+      "signals": "求人票のどの部分からそのリスクを読み取るか",
+      "mitigation": "面接で確認すべきこと、または対処法"
     },
     {
-      "surface": "求人票に書いてある表現",
-      "insight": "その裏にある実態や意図（2-3文）"
+      "scenario": "地雷シナリオ2",
+      "signals": "シグナル",
+      "mitigation": "確認・対処法"
     },
     {
-      "surface": "求人票に書いてある表現",
-      "insight": "その裏にある実態や意図（2-3文）"
+      "scenario": "地雷シナリオ3",
+      "signals": "シグナル",
+      "mitigation": "確認・対処法"
     }
   ],
   "interviewFocus": {
@@ -97,7 +123,7 @@ ${resumeText ? `# 応募者の経歴\n${resumeText}` : ''}
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 3000,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
 
