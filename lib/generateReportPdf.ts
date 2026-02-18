@@ -662,11 +662,20 @@ export function downloadReportPdf(data: ReportData) {
     }
   }
 
-  // ─── ページ番号追加 & 表示 ───
+  // ─── ページ番号追加 & ダウンロード ───
   pdf.addPageNumbers();
   
-  // iPhoneでも動作するように、別タブで開く
+  // Blob URLを作成してダウンロード
   const pdfBlob = doc.output('blob');
   const pdfUrl = URL.createObjectURL(pdfBlob);
-  window.open(pdfUrl, '_blank');
+  const link = document.createElement('a');
+  link.href = pdfUrl;
+  link.download = 'interview-report.pdf';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // 少し遅延してからURLを解放
+  setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
 }
