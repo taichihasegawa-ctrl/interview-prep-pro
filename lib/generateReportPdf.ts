@@ -662,7 +662,11 @@ export function downloadReportPdf(data: ReportData) {
     }
   }
 
-  // ─── ページ番号追加 & ダウンロード ───
+  // ─── ページ番号追加 & 表示 ───
   pdf.addPageNumbers();
-  doc.save('interview-report.pdf');
+  
+  // iPhoneでも動作するように、別タブで開く
+  const pdfBlob = doc.output('blob');
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, '_blank');
 }

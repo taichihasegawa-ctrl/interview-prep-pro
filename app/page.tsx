@@ -172,19 +172,14 @@ export default function Home() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quickAgents, setQuickAgents] = useState<MatchedAgent[]>([]);
 
-  // 決済状態の確認（URL パラメータとlocalStorage）
+  // 決済状態の確認（URLパラメータのみ、ワンタイム課金）
   useState(() => {
     if (typeof window !== 'undefined') {
-      // URLパラメータから決済完了を確認
       const params = new URLSearchParams(window.location.search);
       if (params.get('payment') === 'success') {
         setIsPaid(true);
-        localStorage.setItem('interview_paid', 'true');
+        // URLパラメータを即座に削除（URL保存による再利用を防止）
         window.history.replaceState({}, '', window.location.pathname);
-      }
-      // localStorageから復元
-      if (localStorage.getItem('interview_paid') === 'true') {
-        setIsPaid(true);
       }
     }
   });
