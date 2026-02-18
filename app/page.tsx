@@ -489,7 +489,7 @@ export default function Home() {
                     処理中...
                   </>
                 ) : (
-                  '¥500 で利用する'
+                  '¥1,000 で利用する'
                 )}
               </button>
               <button
@@ -736,7 +736,7 @@ export default function Home() {
                   {!isPaid && (
                     <div className="bg-gradient-to-r from-amber-50 to-stone-50 border border-amber-100 p-4 mb-4">
                       <p className="text-sm text-stone-700">
-                        <span className="font-medium">¥500</span> で全ての詳細分析機能が利用できます
+                        <span className="font-medium">¥1,000</span> で全ての詳細分析機能が利用できます
                       </p>
                     </div>
                   )}
