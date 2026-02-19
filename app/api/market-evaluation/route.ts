@@ -1,151 +1,149 @@
+// app/api/market-evaluation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
+const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { resumeText, jobInfo } = body;
+    const { resumeText, jobInfo } = await req.json();
 
-    if (!resumeText || resumeText.trim() === '') {
+    if (!resumeText?.trim()) {
       return NextResponse.json(
         { error: '職務経歴を入力してください' },
         { status: 400 }
       );
     }
 
-    const prompt = `あなたは転職市場に精通したキャリアアナリストです。
-以下の職務経歴を「市場からどう見えるか」という視点で客観的に分析してください。
+    const hasJobInfo = jobInfo?.trim();
 
-【重要な制約】
-- 転職を勧める表現は禁止
-- 「おすすめ」「〜すべき」などの断定表現は禁止
-- 確率やパーセンテージの表示は禁止
-- あくまで「市場視点での見え方」を言語化する
-- 客観的・中立的なトーンを維持
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4500,
+      messages: [
+        {
+          role: 'user',
+          content: `あなたは日本の転職市場に精通したキャリアアナリストです。以下の職務経歴${hasJobInfo ? 'と求人情報' : ''}を分析し、市場評価を行ってください。
 
-# 職務経歴
+【職務経歴】
 ${resumeText}
 
-${jobInfo ? `# 志望方向（参考情報）\n${jobInfo}` : ''}
+${hasJobInfo ? `【求人情報】
+${jobInfo}
 
-# 出力形式（JSON）
+` : ''}以下のJSON形式で回答してください。JSONのみを返してください。
+
 {
   "marketView": {
-    "summary": "市場からの見え方を2-3文で要約",
-    "instantValue": [
-      "即戦力として評価されやすい経験1",
-      "即戦力として評価されやすい経験2"
-    ],
-    "growingDemand": [
-      "需要が伸びているスキル1",
-      "需要が伸びているスキル2"
-    ],
-    "reproducibleResults": [
-      "再現性の高い実績1",
-      "再現性の高い実績2"
-    ]
+    "summary": "<2-3文で候補者の市場価値を客観的に評価>",
+    "instantValue": ["<即戦力として評価される経験やスキル1>", "<2>", "<3>"],
+    "growingDemand": ["<需要が伸びているスキル1>", "<2>", "<3>"],
+    "reproducibleResults": ["<再現性のある実績1>", "<2>", "<3>"]
+  },
+  "salaryEstimate": {
+    "range": "<想定年収レンジ。例: '420〜550万円'>",
+    "currentComparison": "<'up' | 'flat' | 'negotiation_needed' のいずれか。up=上がる可能性が高い、flat=横ばい、negotiation_needed=要交渉>",
+    "reasoning": "<年収レンジの推定根拠を1-2文で>",
+    "note": "<推定値である旨の注記。例: 'この年収レンジは経験・スキルと市場相場から推定したものです。実際の提示額は企業の給与体系や評価により異なります。'>"
+  },
+  "selectionOutlook": {
+    "grade": "<'A' | 'B' | 'C' のいずれか。A=書類・面接通過可能性が高い、B=中程度、C=要対策>",
+    "comment": "<選考通過可能性についてのコメントを1-2文で>",
+    "keyFactors": ["<合否を分ける重要なポイント1>", "<2>", "<3>"]
+  },
+  "competitorProfile": {
+    "typicalBackground": "<この求人に応募しそうな他の候補者像を2-3文で具体的に>",
+    "competitiveAdvantages": ["<この候補者が他候補に勝っている点1>", "<2>", "<3>"],
+    "potentialWeaknesses": ["<他候補に劣る可能性がある点1>", "<2>"]
+  },
+  "negotiationLeverage": {
+    "salaryNegotiation": ["<年収交渉で使える強み・材料1>", "<2>", "<3>"],
+    "conditionNegotiation": ["<条件交渉（勤務地、リモート、役職等）で使えるポイント1>", "<2>"],
+    "timingAdvice": "<交渉タイミングのアドバイス（いつ、どの段階で交渉すべきか）を1-2文で>"
   },
   "strengths": {
-    "execution": "実行力に関する評価コメント（1-2文）",
-    "continuity": "継続性に関する評価コメント（1-2文）",
-    "problemSolving": "問題解決力に関する評価コメント（1-2文）"
+    "execution": "<実行力についての1文評価>",
+    "continuity": "<継続性についての1文評価>",
+    "problemSolving": "<問題解決力についての1文評価>"
   },
   "growthAreas": {
-    "quantification": "成果の数値化について（1-2文）",
-    "decisionMaking": "意思決定経験について（1-2文）",
-    "crossFunctional": "横断プロジェクト経験について（1-2文）"
+    "quantification": "<成果の数値化について、具体的な改善アドバイス>",
+    "decisionMaking": "<意思決定経験について、具体的な改善アドバイス>",
+    "crossFunctional": "<横断プロジェクトについて、具体的な改善アドバイス>"
   },
   "careerDirections": [
     {
-      "direction": "同職種深化",
-      "description": "現職種でさらに専門性を高める方向性（2-3文）",
-      "relevantIndustries": ["業界1", "業界2"]
+      "direction": "<キャリア方向性1の名称>",
+      "description": "<その方向性の説明と適性理由>",
+      "relevantIndustries": ["<関連業界1>", "<関連業界2>"]
     },
     {
-      "direction": "隣接職種展開",
-      "description": "経験を活かして隣接領域に広げる方向性（2-3文）",
-      "relevantIndustries": ["業界1", "業界2"]
+      "direction": "<キャリア方向性2の名称>",
+      "description": "<その方向性の説明と適性理由>",
+      "relevantIndustries": ["<関連業界1>", "<関連業界2>"]
     },
     {
-      "direction": "成長市場シフト",
-      "description": "成長市場へのシフト可能性（2-3文）",
-      "relevantIndustries": ["業界1", "業界2"]
+      "direction": "<キャリア方向性3の名称>",
+      "description": "<その方向性の説明と適性理由>",
+      "relevantIndustries": ["<関連業界1>", "<関連業界2>"]
     }
   ],
   "profileSummary": {
-    "primarySkills": ["主要スキル1", "主要スキル2", "主要スキル3"],
-    "experienceYears": "経験年数の推定（例：3-5年）",
-    "jobCategory": "職種カテゴリ（エンジニア/営業/マーケティング/管理職/専門職/その他）",
-    "seniorityLevel": "シニアリティ（若手/中堅/シニア/マネジメント）",
-    "estimatedSalaryRange": "想定年収レンジ（例：500-700万円）",
-    "industryExperience": ["経験業界1", "経験業界2"],
-    "uniqueStrengths": [
-      "ユニークな強み1（具体的に）",
-      "ユニークな強み2（具体的に）",
-      "ユニークな強み3（具体的に）"
-    ],
-    "leadershipExperience": "リーダー/マネジメント経験の有無と内容",
-    "careerHighlight": "キャリアのハイライト（最もアピールできる実績）"
+    "primarySkills": ["<主要スキル1>", "<2>", "<3>"],
+    "experienceYears": "<総経験年数>",
+    "jobCategory": "<職種カテゴリ（営業、エンジニア、マーケティング等）>",
+    "seniorityLevel": "<シニアリティ（ジュニア/ミドル/シニア/マネージャー）>",
+    "estimatedSalaryRange": "<想定年収レンジ>",
+    "industryExperience": ["<経験業界1>", "<2>"],
+    "uniqueStrengths": ["<ユニークな強み1>", "<2>"],
+    "leadershipExperience": "<リーダーシップ経験の有無と内容>",
+    "careerHighlight": "<キャリアハイライト（最も印象的な実績）>"
   },
   "agentMatchReasons": {
     "itSpecialist": {
-      "applicable": true または false,
-      "reasons": [
-        "このユーザーにIT特化エージェントが合う理由1",
-        "このユーザーにIT特化エージェントが合う理由2"
-      ]
+      "applicable": <true/false>,
+      "reasons": ["<IT専門エージェントが適している理由1>", "<2>"]
     },
     "highClass": {
-      "applicable": true または false,
-      "reasons": [
-        "このユーザーにハイクラスエージェントが合う理由1",
-        "このユーザーにハイクラスエージェントが合う理由2"
-      ]
+      "applicable": <true/false>,
+      "reasons": ["<ハイクラスエージェントが適している理由1>", "<2>"]
     },
     "general": {
-      "applicable": true または false,
-      "reasons": [
-        "このユーザーに総合型エージェントが合う理由1",
-        "このユーザーに総合型エージェントが合う理由2"
-      ]
+      "applicable": <true/false>,
+      "reasons": ["<総合型エージェントが適している理由1>", "<2>"]
     },
     "youngCareer": {
-      "applicable": true または false,
-      "reasons": [
-        "このユーザーに若手向けエージェントが合う理由1",
-        "このユーザーに若手向けエージェントが合う理由2"
-      ]
+      "applicable": <true/false>,
+      "reasons": ["<20代・若手向けエージェントが適している理由1>", "<2>"]
     }
   }
 }
 
-分析は建設的で、ユーザーが自身のキャリアを客観視できるような内容にしてください。
-agentMatchReasonsは、ユーザーの経歴を具体的に引用して理由を書いてください。`;
-
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
+重要な注意点:
+- salaryEstimate.range は日本円で具体的な数値レンジを記載（例：420〜550万円）
+- selectionOutlook.grade は候補者の経歴と求人要件のマッチ度から判断
+- competitorProfile は${hasJobInfo ? 'この具体的な求人に' : '同様のポジションに'}応募しそうな他の候補者を想定
+- negotiationLeverage は具体的で実践的なアドバイスを記載
+- すべて日本語で回答
+- agentMatchReasons では、該当しない場合は applicable: false として reasons は空配列`
+        }
+      ]
     });
 
-    const content = message.content[0];
-    if (content.type !== 'text') throw new Error('Unexpected response type');
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    let jsonText = content.text;
-    const match = content.text.match(/```json\s*([\s\S]*?)\s*```/);
-    if (match) jsonText = match[1];
+    // JSON部分を抽出
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json({ error: '解析に失敗しました' }, { status: 500 });
+    }
 
-    const evaluation = JSON.parse(jsonText);
-    return NextResponse.json(evaluation);
-
+    const result = JSON.parse(jsonMatch[0]);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Market evaluation error:', error);
     return NextResponse.json(
-      { error: '市場評価の生成に失敗しました' },
+      { error: '市場評価中にエラーが発生しました' },
       { status: 500 }
     );
   }

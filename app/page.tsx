@@ -83,6 +83,31 @@ type MarketEvaluation = {
     growingDemand: string[];
     reproducibleResults: string[];
   };
+  // 新規: 想定年収レンジ
+  salaryEstimate?: {
+    range: string;  // 例: "420〜550万円"
+    currentComparison: 'up' | 'flat' | 'negotiation_needed';  // 上がる可能性/横ばい/要交渉
+    reasoning: string;  // 推定根拠
+    note: string;  // 注記（推定値である旨など）
+  };
+  // 新規: 選考通過可能性
+  selectionOutlook?: {
+    grade: 'A' | 'B' | 'C';  // A:高い / B:中程度 / C:要対策
+    comment: string;
+    keyFactors: string[];  // 合否を分けるポイント
+  };
+  // 新規: 競合候補者像
+  competitorProfile?: {
+    typicalBackground: string;  // この求人に応募しそうな人材像
+    competitiveAdvantages: string[];  // あなたの差別化ポイント
+    potentialWeaknesses: string[];  // 他候補に劣る可能性がある点
+  };
+  // 新規: 交渉時のポイント
+  negotiationLeverage?: {
+    salaryNegotiation: string[];  // 年収交渉で使える強み
+    conditionNegotiation: string[];  // 条件交渉で使えるポイント
+    timingAdvice: string;  // 交渉タイミングのアドバイス
+  };
   strengths: {
     execution: string;
     continuity: string;
@@ -1286,6 +1311,92 @@ export default function Home() {
                   </div>
                 </section>
 
+                {/* 想定年収レンジ */}
+                {marketEvaluation.salaryEstimate && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">SALARY ESTIMATE</p>
+                    <div className="bg-stone-50 border border-stone-200 p-6">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-2xl font-semibold text-stone-800">{marketEvaluation.salaryEstimate.range}</span>
+                        <span className={`px-3 py-1 text-xs font-medium ${
+                          marketEvaluation.salaryEstimate.currentComparison === 'up' 
+                            ? 'bg-teal-100 text-teal-800' 
+                            : marketEvaluation.salaryEstimate.currentComparison === 'flat'
+                            ? 'bg-stone-200 text-stone-700'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {marketEvaluation.salaryEstimate.currentComparison === 'up' ? '上がる可能性が高い' 
+                            : marketEvaluation.salaryEstimate.currentComparison === 'flat' ? '横ばいの見込み'
+                            : '要交渉'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-stone-700 mb-3">{marketEvaluation.salaryEstimate.reasoning}</p>
+                      <p className="text-xs text-stone-500 border-l-2 border-stone-300 pl-3">{marketEvaluation.salaryEstimate.note}</p>
+                    </div>
+                  </section>
+                )}
+
+                {/* 選考通過可能性 */}
+                {marketEvaluation.selectionOutlook && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">SELECTION OUTLOOK</p>
+                    <div className="flex items-start gap-6">
+                      <div className={`w-16 h-16 flex items-center justify-center text-2xl font-bold ${
+                        marketEvaluation.selectionOutlook.grade === 'A' 
+                          ? 'bg-teal-600 text-white' 
+                          : marketEvaluation.selectionOutlook.grade === 'B'
+                          ? 'bg-stone-600 text-white'
+                          : 'bg-amber-500 text-white'
+                      }`}>
+                        {marketEvaluation.selectionOutlook.grade}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-stone-800 mb-3">{marketEvaluation.selectionOutlook.comment}</p>
+                        <p className="text-xs text-stone-500 mb-2">合否を分けるポイント</p>
+                        <ul className="space-y-1">
+                          {marketEvaluation.selectionOutlook.keyFactors.map((factor, i) => (
+                            <li key={i} className="text-sm text-stone-700 flex items-start gap-2">
+                              <span className="text-teal-600 mt-0.5">•</span>
+                              {factor}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* 競合候補者像 */}
+                {marketEvaluation.competitorProfile && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">COMPETITOR PROFILE</p>
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-xs text-stone-500 mb-2">この求人に応募しそうな人材像</p>
+                        <p className="text-sm text-stone-700 bg-stone-50 p-4 border-l-2 border-stone-400">{marketEvaluation.competitorProfile.typicalBackground}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-xs text-stone-500 mb-2">あなたの差別化ポイント</p>
+                          <ul className="space-y-2">
+                            {marketEvaluation.competitorProfile.competitiveAdvantages.map((adv, i) => (
+                              <li key={i} className="text-sm text-stone-700 border-l-2 border-teal-600 pl-3">{adv}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-500 mb-2">他候補に劣る可能性がある点</p>
+                          <ul className="space-y-2">
+                            {marketEvaluation.competitorProfile.potentialWeaknesses.map((weak, i) => (
+                              <li key={i} className="text-sm text-stone-700 border-l-2 border-amber-500 pl-3">{weak}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
                   {/* 強み */}
                   <section>
                     <p className="text-xs text-stone-500 tracking-widest mb-4">STRENGTHS</p>
@@ -1324,6 +1435,41 @@ export default function Home() {
                       </div>
                     </div>
                   </section>
+
+                {/* 交渉時のポイント */}
+                {marketEvaluation.negotiationLeverage && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">NEGOTIATION LEVERAGE</p>
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                      <div>
+                        <p className="text-xs text-stone-500 mb-3">年収交渉で使える強み</p>
+                        <ul className="space-y-2">
+                          {marketEvaluation.negotiationLeverage.salaryNegotiation.map((item, i) => (
+                            <li key={i} className="text-sm text-stone-700 flex items-start gap-2">
+                              <span className="text-teal-600 mt-0.5">✓</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-xs text-stone-500 mb-3">条件交渉で使えるポイント</p>
+                        <ul className="space-y-2">
+                          {marketEvaluation.negotiationLeverage.conditionNegotiation.map((item, i) => (
+                            <li key={i} className="text-sm text-stone-700 flex items-start gap-2">
+                              <span className="text-teal-600 mt-0.5">✓</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="bg-stone-50 border border-stone-200 p-4">
+                      <p className="text-xs text-stone-500 mb-1">交渉タイミングのアドバイス</p>
+                      <p className="text-sm text-stone-700">{marketEvaluation.negotiationLeverage.timingAdvice}</p>
+                    </div>
+                  </section>
+                )}
 
                   {/* キャリア方向 */}
                   <section className="border-t border-stone-200 pt-8">
