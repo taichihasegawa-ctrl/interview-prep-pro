@@ -201,6 +201,13 @@ export default function Home() {
   useState(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
+      // 管理者バイパス
+      if (params.get('key') === 'taichi2026pro') {
+        setIsPaid(true);
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
+      // 通常の決済確認
       if (params.get('payment') === 'success') {
         setIsPaid(true);
         // URLパラメータを即座に削除（URL保存による再利用を防止）
@@ -502,7 +509,7 @@ export default function Home() {
                 PDF出力
               </li>
             </ul>
-            <div className="flex gap-3">
+            <div className="flex gap-3 mb-3">
               <button
                 onClick={handleCheckout}
                 disabled={checkoutLoading}
@@ -524,6 +531,13 @@ export default function Home() {
                 閉じる
               </button>
             </div>
+            <button
+              onClick={() => window.open('/sample-report.pdf', '_blank')}
+              className="w-full border border-teal-600 text-teal-700 py-2.5 text-sm font-medium hover:bg-teal-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              サンプルレポートを見る
+            </button>
             <p className="text-xs text-stone-400 text-center mt-3">Apple Pay / Google Pay / カード対応</p>
           </div>
         </div>
