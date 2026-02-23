@@ -55,11 +55,45 @@ type MarketEvaluation = {
   agentMatchReasons?: unknown;
 };
 
+// 職務経歴書審査の型定義
+type ScorecardItem = { score: number; evidence: string };
+type Scorecard = {
+  scopeClarity: ScorecardItem;
+  kpiVisibility: ScorecardItem;
+  causality: ScorecardItem;
+  reproducibility: ScorecardItem;
+  decisionEvidence: ScorecardItem;
+  collaborationEvidence: ScorecardItem;
+};
+type CriticalIssue = {
+  issue: string;
+  severity: 'critical' | 'major' | 'minor';
+  quotedText: string;
+  whyCritical: string;
+  fixDirection: string;
+};
+type LineRewrite = { before: string; after: string; why: string };
+type DocumentReviewResult = {
+  diagnosis: {
+    diagnosis: { overallAssessment: string; riskPoints: string[] };
+    scorecard: Scorecard;
+    criticalIssues: CriticalIssue[];
+  };
+  reconstruction: {
+    reconstructedVersion: string;
+    lineLevelRewrites: LineRewrite[];
+    clarificationNeeded?: { question: string; why: string; placeholder: string }[];
+  };
+  totalScore: number;
+  maxScore: number;
+};
+
 export type ReportData = {
   positionAnalysis: PositionAnalysis | null;
   questions: Question[];
   correctionResult: CorrectionResult | null;
   marketEvaluation: MarketEvaluation | null;
+  documentReview?: DocumentReviewResult | null;
   positionTitle?: string;
 };
 
@@ -658,6 +692,213 @@ export function downloadReportPdf(data: ReportData) {
           pdf.y += 3;
         }
         pdf.y += 5;
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // セクション5: 職務経歴書審査
+  // ─────────────────────────────────────────────────────────────
+  if (data.documentReview) {
+    const review = data.documentReview;
+    
+    pdf.newPage();
+    
+    // セクションヘッダー
+    pdf.setFont(10, C.teal);
+    doc.text('05', pdf.marginLeft, pdf.y);
+    pdf.y += 6;
+    
+    pdf.setFont(16, C.black);
+    doc.text('職務経歴書審査', pdf.marginLeft, pdf.y);
+    pdf.y += 8;
+
+    // 総合評価
+    pdf.setFont(10, C.dark);
+    doc.text('HIRING MANAGER\'S VIEW', pdf.marginLeft, pdf.y);
+    pdf.y += 6;
+
+    // スコアボックス
+    doc.setFillColor(41, 37, 36);
+    doc.rect(pdf.marginLeft, pdf.y, pdf.contentWidth, 25, 'F');
+    
+    pdf.setFont(9, C.white);
+    const assessmentLines = doc.splitTextToSize(review.diagnosis.diagnosis.overallAssessment, pdf.contentWidth - 10);
+    let yInBox = pdf.y + 6;
+    for (const line of assessmentLines.slice(0, 2)) {
+      doc.text(line, pdf.marginLeft + 5, yInBox);
+      yInBox += 4.5;
+    }
+    
+    pdf.setFont(20, C.white);
+    doc.text(`${review.totalScore}`, pdf.marginLeft + 5, pdf.y + 22);
+    pdf.setFont(9, C.light);
+    doc.text(`/ ${review.maxScore}点`, pdf.marginLeft + 22, pdf.y + 22);
+    
+    // 評価ラベル
+    const scoreLabel = review.totalScore >= 24 ? '高評価' :
+                       review.totalScore >= 18 ? '改善余地あり' :
+                       review.totalScore >= 12 ? '要改善' : '大幅な改善が必要';
+    doc.setFillColor(review.totalScore >= 24 ? 13 : review.totalScore >= 18 ? 120 : 245, 
+                     review.totalScore >= 24 ? 148 : review.totalScore >= 18 ? 113 : 158, 
+                     review.totalScore >= 24 ? 136 : review.totalScore >= 18 ? 108 : 11);
+    doc.rect(pdf.marginLeft + 55, pdf.y + 17, 35, 7, 'F');
+    pdf.setFont(8, C.white);
+    doc.text(scoreLabel, pdf.marginLeft + 57, pdf.y + 22);
+    
+    pdf.y += 30;
+
+    // リスクポイント
+    if (review.diagnosis.diagnosis.riskPoints.length > 0) {
+      pdf.y += 5;
+      pdf.setFont(9, C.mid);
+      doc.text('採用側が懸念する可能性のある点', pdf.marginLeft, pdf.y);
+      pdf.y += 6;
+      
+      for (const risk of review.diagnosis.diagnosis.riskPoints) {
+        pdf.checkPageBreak(8);
+        doc.setFillColor(...C.amber);
+        doc.rect(pdf.marginLeft, pdf.y - 0.5, 1.5, 5, 'F');
+        pdf.setFont(8.5, C.dark);
+        const riskLines = doc.splitTextToSize(risk, pdf.contentWidth - 5);
+        for (const line of riskLines) {
+          doc.text(line, pdf.marginLeft + 4, pdf.y + 3);
+          pdf.y += 4.5;
+        }
+        pdf.y += 2;
+      }
+    }
+
+    // スコアカード
+    pdf.y += 8;
+    pdf.hr();
+    pdf.y += 8;
+    
+    pdf.setFont(10, C.dark);
+    doc.text('SCORECARD', pdf.marginLeft, pdf.y);
+    pdf.y += 8;
+
+    const scorecardItems = [
+      { key: 'scopeClarity', label: 'スコープ明確性' },
+      { key: 'kpiVisibility', label: 'KPI可視性' },
+      { key: 'causality', label: '因果関係' },
+      { key: 'reproducibility', label: '再現性' },
+      { key: 'decisionEvidence', label: '判断の痕跡' },
+      { key: 'collaborationEvidence', label: '協業の痕跡' },
+    ];
+
+    for (const item of scorecardItems) {
+      pdf.checkPageBreak(15);
+      const scoreItem = review.diagnosis.scorecard[item.key as keyof Scorecard];
+      
+      // ラベルとスコア
+      pdf.setFont(9, C.dark);
+      doc.text(item.label, pdf.marginLeft, pdf.y);
+      pdf.setFont(12, scoreItem.score >= 4 ? C.teal : scoreItem.score >= 2 ? C.dark : C.amber);
+      doc.text(`${scoreItem.score}/5`, pdf.marginLeft + 45, pdf.y);
+      
+      // バー
+      const barY = pdf.y + 3;
+      const barWidth = 60;
+      doc.setFillColor(...C.border);
+      doc.rect(pdf.marginLeft + 60, barY - 2, barWidth, 3, 'F');
+      const fillColor = scoreItem.score >= 4 ? C.teal : scoreItem.score >= 2 ? C.dark : C.amber;
+      doc.setFillColor(...fillColor);
+      doc.rect(pdf.marginLeft + 60, barY - 2, barWidth * (scoreItem.score / 5), 3, 'F');
+      
+      // 根拠
+      pdf.y += 6;
+      pdf.setFont(7.5, C.mid);
+      const evidenceLines = doc.splitTextToSize(scoreItem.evidence, pdf.contentWidth - 5);
+      for (const line of evidenceLines.slice(0, 2)) {
+        doc.text(line, pdf.marginLeft + 3, pdf.y);
+        pdf.y += 3.5;
+      }
+      pdf.y += 4;
+    }
+
+    // 致命的な問題点
+    if (review.diagnosis.criticalIssues.length > 0) {
+      pdf.y += 5;
+      pdf.hr();
+      pdf.y += 8;
+      
+      pdf.setFont(10, C.dark);
+      doc.text('CRITICAL ISSUES', pdf.marginLeft, pdf.y);
+      pdf.y += 8;
+
+      for (const issue of review.diagnosis.criticalIssues) {
+        pdf.checkPageBreak(30);
+        
+        // 重要度ラベル
+        const severityLabel = issue.severity === 'critical' ? '致命的' : issue.severity === 'major' ? '重要' : '軽微';
+        const severityColor = issue.severity === 'critical' ? [220, 38, 38] as [number, number, number] : 
+                              issue.severity === 'major' ? C.amber : C.mid;
+        
+        doc.setFillColor(...severityColor);
+        doc.rect(pdf.marginLeft, pdf.y - 2, 1.5, 25, 'F');
+        
+        pdf.setFont(7, severityColor);
+        doc.text(`[${severityLabel}]`, pdf.marginLeft + 4, pdf.y);
+        pdf.setFont(9, C.dark);
+        doc.text(issue.issue, pdf.marginLeft + 18, pdf.y);
+        pdf.y += 6;
+        
+        // 引用
+        doc.setFillColor(...C.bg);
+        doc.rect(pdf.marginLeft + 4, pdf.y - 2, pdf.contentWidth - 8, 10, 'F');
+        pdf.setFont(8, C.mid);
+        const quoteLines = doc.splitTextToSize(`"${issue.quotedText}"`, pdf.contentWidth - 15);
+        for (const line of quoteLines.slice(0, 2)) {
+          doc.text(line, pdf.marginLeft + 6, pdf.y + 2);
+          pdf.y += 4;
+        }
+        pdf.y += 4;
+        
+        // 問題点と改善方向
+        pdf.setFont(8, C.dark);
+        doc.text(`問題点: ${issue.whyCritical}`, pdf.marginLeft + 4, pdf.y);
+        pdf.y += 5;
+        pdf.setFont(8, C.teal);
+        doc.text(`改善方向: ${issue.fixDirection}`, pdf.marginLeft + 4, pdf.y);
+        pdf.y += 8;
+      }
+    }
+
+    // 再構築版（要約のみ）
+    if (review.reconstruction.lineLevelRewrites.length > 0) {
+      pdf.checkPageBreak(40);
+      pdf.y += 5;
+      pdf.hr();
+      pdf.y += 8;
+      
+      pdf.setFont(10, C.dark);
+      doc.text('主な修正ポイント', pdf.marginLeft, pdf.y);
+      pdf.y += 8;
+
+      for (const rewrite of review.reconstruction.lineLevelRewrites.slice(0, 5)) {
+        pdf.checkPageBreak(20);
+        
+        // Before
+        pdf.setFont(7, [220, 38, 38]);
+        doc.text('BEFORE:', pdf.marginLeft, pdf.y);
+        pdf.setFont(8, C.mid);
+        const beforeLines = doc.splitTextToSize(rewrite.before, pdf.contentWidth - 20);
+        doc.text(beforeLines[0] || '', pdf.marginLeft + 18, pdf.y);
+        pdf.y += 5;
+        
+        // After
+        pdf.setFont(7, C.teal);
+        doc.text('AFTER:', pdf.marginLeft, pdf.y);
+        pdf.setFont(8, C.dark);
+        const afterLines = doc.splitTextToSize(rewrite.after, pdf.contentWidth - 20);
+        doc.text(afterLines[0] || '', pdf.marginLeft + 18, pdf.y);
+        pdf.y += 5;
+        
+        // Why
+        pdf.setFont(7, C.mid);
+        doc.text(`理由: ${rewrite.why}`, pdf.marginLeft + 3, pdf.y);
+        pdf.y += 8;
       }
     }
   }

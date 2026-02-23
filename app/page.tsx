@@ -501,6 +501,7 @@ export default function Home() {
       questions,
       correctionResult,
       marketEvaluation,
+      documentReview,
       positionTitle: positionAnalysis?.positionReality?.title || jobInfo.split('\n')[0]?.replace(/【.*?】/, '').trim(),
     });
   };
@@ -1839,7 +1840,7 @@ export default function Home() {
                           {[
                             positionAnalysis && 'ポジション分析',
                             questions.length > 0 && `想定質問${questions.length}問`,
-                            correctionResult && '添削結果',
+                            documentReview && '経歴書審査',
                             marketEvaluation && '市場評価',
                           ].filter(Boolean).join(' / ')}
                         </p>
