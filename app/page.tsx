@@ -7,8 +7,70 @@ import {
 import { downloadReportPdf } from '@/lib/generateReportPdf';
 
 type Question = { question: string; answer: string; category?: string; };
+
+// 職務経歴書審査 - 診断結果
+type DiagnosisResult = {
+  overallAssessment: string;
+  riskPoints: string[];
+};
+
+type ScorecardItem = {
+  score: number;
+  evidence: string;
+};
+
+type Scorecard = {
+  scopeClarity: ScorecardItem;
+  kpiVisibility: ScorecardItem;
+  causality: ScorecardItem;
+  reproducibility: ScorecardItem;
+  decisionEvidence: ScorecardItem;
+  collaborationEvidence: ScorecardItem;
+};
+
+type CriticalIssue = {
+  issue: string;
+  severity: 'critical' | 'major' | 'minor';
+  quotedText: string;
+  whyCritical: string;
+  fixDirection: string;
+};
+
+// 職務経歴書審査 - 再構築結果
+type LineRewrite = {
+  before: string;
+  after: string;
+  why: string;
+};
+
+type ClarificationNeeded = {
+  question: string;
+  why: string;
+  placeholder: string;
+};
+
+type ReconstructionResult = {
+  reconstructedVersion: string;
+  lineLevelRewrites: LineRewrite[];
+  clarificationNeeded: ClarificationNeeded[];
+};
+
+// 統合された審査結果
+type DocumentReviewResult = {
+  diagnosis: {
+    diagnosis: DiagnosisResult;
+    scorecard: Scorecard;
+    criticalIssues: CriticalIssue[];
+  };
+  reconstruction: ReconstructionResult;
+  totalScore: number;
+  maxScore: number;
+};
+
+// 旧型定義（後方互換性のため残す）
 type CorrectionItem = { type: string; before: string; after: string; reason: string; };
 type CorrectionResult = { summary: string; strengths?: string[]; corrections?: CorrectionItem[]; suggestions?: string[]; };
+
 type PracticeFeedback = { score: number; scoreComment: string; goodPoints: string[]; improvements: string[]; improvedAnswer: string; tips: string; };
 
 type PositionAnalysis = {
@@ -176,7 +238,12 @@ export default function Home() {
   const [expandedQuestions, setExpandedQuestions] = useState<{[key: number]: boolean}>({});
   const [showModelAnswer, setShowModelAnswer] = useState<{[key: number]: boolean}>({});
   
+  // 旧添削結果（後方互換性）
   const [correctionResult, setCorrectionResult] = useState<CorrectionResult | null>(null);
+  // 新・職務経歴書審査結果
+  const [documentReview, setDocumentReview] = useState<DocumentReviewResult | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   
   const [marketEvaluation, setMarketEvaluation] = useState<MarketEvaluation | null>(null);
   const [matchedAgents, setMatchedAgents] = useState<MatchedAgent[]>([]);
@@ -340,6 +407,31 @@ export default function Home() {
       console.error('Feedback error:', error);
     } finally {
       setFeedbackLoading(prev => ({ ...prev, [index]: false }));
+    }
+  };
+
+  // 職務経歴書審査の実行
+  const handleDocumentReview = async () => {
+    if (!resumeText.trim()) {
+      setReviewError('職務経歴を入力してください');
+      return;
+    }
+    setReviewLoading(true);
+    setReviewError('');
+    setDocumentReview(null);
+    try {
+      const res = await fetch('/api/correct-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentText: resumeText, jobInfo }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+      setDocumentReview(data);
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'エラーが発生しました');
+    } finally {
+      setReviewLoading(false);
     }
   };
 
@@ -566,6 +658,7 @@ export default function Home() {
               { id: 'quick', label: 'クイック診断', free: true },
               { id: 'position', label: 'ポジション分析', free: false },
               { id: 'questions', label: '想定質問', free: false },
+              { id: 'review', label: '経歴書審査', free: false },
               { id: 'market', label: '市場評価', free: false },
             ].map((tab) => (
               <button
@@ -1247,6 +1340,239 @@ export default function Home() {
                     </button>
                   </section>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+
+        {/* 経歴書審査タブ */}
+        {activeTab === 'review' && (
+          <div>
+            {!resumeText.trim() ? (
+              <div className="py-16 text-center">
+                <p className="text-stone-500 text-sm mb-4">職務経歴を入力してください</p>
+                <button
+                  onClick={() => setActiveTab('prepare')}
+                  className="text-sm text-teal-700 hover:text-teal-800 underline underline-offset-2"
+                >
+                  準備タブへ
+                </button>
+              </div>
+            ) : !documentReview ? (
+              <div className="py-16 text-center">
+                {reviewError && (
+                  <p className="text-sm text-red-700 mb-4">{reviewError}</p>
+                )}
+                <p className="text-xs text-stone-500 tracking-widest mb-2">HIRING MANAGER&apos;S VIEW</p>
+                <p className="text-sm text-stone-600 mb-6">
+                  採用担当者の視点で職務経歴書を審査します
+                </p>
+                <button
+                  onClick={handleDocumentReview}
+                  disabled={reviewLoading}
+                  className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                >
+                  {reviewLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      審査中...（2段階分析）
+                    </>
+                  ) : (
+                    '審査を開始する'
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {/* 総合評価 */}
+                <section>
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">HIRING MANAGER&apos;S VIEW</p>
+                  <div className="bg-stone-800 text-white p-6">
+                    <p className="text-sm leading-relaxed mb-4">{documentReview.diagnosis.diagnosis.overallAssessment}</p>
+                    <div className="flex items-center gap-4">
+                      <span className="text-3xl font-bold">{documentReview.totalScore}</span>
+                      <span className="text-stone-400">/ {documentReview.maxScore}点</span>
+                      <span className={`px-3 py-1 text-xs font-medium ${
+                        documentReview.totalScore >= 24 ? 'bg-teal-600' :
+                        documentReview.totalScore >= 18 ? 'bg-stone-600' :
+                        documentReview.totalScore >= 12 ? 'bg-amber-600' : 'bg-red-600'
+                      }`}>
+                        {documentReview.totalScore >= 24 ? '高評価' :
+                         documentReview.totalScore >= 18 ? '改善余地あり' :
+                         documentReview.totalScore >= 12 ? '要改善' : '大幅な改善が必要'}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                {/* リスクポイント */}
+                {documentReview.diagnosis.diagnosis.riskPoints.length > 0 && (
+                  <section>
+                    <p className="text-xs text-stone-500 tracking-widest mb-3">RISK POINTS</p>
+                    <p className="text-sm text-stone-600 mb-4">採用側が懸念する可能性のある点</p>
+                    <ul className="space-y-2">
+                      {documentReview.diagnosis.diagnosis.riskPoints.map((risk, i) => (
+                        <li key={i} className="text-sm text-stone-700 border-l-2 border-amber-500 pl-4 py-1">
+                          {risk}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {/* スコアカード */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">SCORECARD</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { key: 'scopeClarity', label: 'スコープ明確性', desc: '任せられる範囲が明確か' },
+                      { key: 'kpiVisibility', label: 'KPI可視性', desc: '成果指標が見えるか' },
+                      { key: 'causality', label: '因果関係', desc: '行動と成果の因果が説明されているか' },
+                      { key: 'reproducibility', label: '再現性', desc: '別環境でも再現可能か' },
+                      { key: 'decisionEvidence', label: '判断の痕跡', desc: '意思決定の経験が見えるか' },
+                      { key: 'collaborationEvidence', label: '協業の痕跡', desc: 'チームワークが見えるか' },
+                    ].map((item) => {
+                      const scoreItem = documentReview.diagnosis.scorecard[item.key as keyof Scorecard];
+                      return (
+                        <div key={item.key} className="border border-stone-200 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-stone-800">{item.label}</span>
+                            <span className={`text-lg font-bold ${
+                              scoreItem.score >= 4 ? 'text-teal-600' :
+                              scoreItem.score >= 3 ? 'text-stone-600' :
+                              scoreItem.score >= 2 ? 'text-amber-600' : 'text-red-600'
+                            }`}>{scoreItem.score}/5</span>
+                          </div>
+                          <div className="flex gap-1 mb-2">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <div
+                                key={n}
+                                className={`h-1.5 flex-1 ${
+                                  n <= scoreItem.score
+                                    ? scoreItem.score >= 4 ? 'bg-teal-600' :
+                                      scoreItem.score >= 3 ? 'bg-stone-600' :
+                                      scoreItem.score >= 2 ? 'bg-amber-500' : 'bg-red-500'
+                                    : 'bg-stone-200'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-xs text-stone-500 mb-1">{item.desc}</p>
+                          <p className="text-xs text-stone-600">{scoreItem.evidence}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* 致命的な問題点 */}
+                {documentReview.diagnosis.criticalIssues.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">CRITICAL ISSUES</p>
+                    <div className="space-y-4">
+                      {documentReview.diagnosis.criticalIssues.map((issue, i) => (
+                        <div key={i} className={`border-l-4 ${
+                          issue.severity === 'critical' ? 'border-red-500 bg-red-50' :
+                          issue.severity === 'major' ? 'border-amber-500 bg-amber-50' :
+                          'border-stone-400 bg-stone-50'
+                        } p-4`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-xs font-medium px-2 py-0.5 ${
+                              issue.severity === 'critical' ? 'bg-red-200 text-red-800' :
+                              issue.severity === 'major' ? 'bg-amber-200 text-amber-800' :
+                              'bg-stone-200 text-stone-800'
+                            }`}>
+                              {issue.severity === 'critical' ? '致命的' : issue.severity === 'major' ? '重要' : '軽微'}
+                            </span>
+                            <span className="text-sm font-medium text-stone-800">{issue.issue}</span>
+                          </div>
+                          <div className="bg-white border border-stone-200 p-3 mb-3">
+                            <p className="text-xs text-stone-500 mb-1">問題のある記述</p>
+                            <p className="text-sm text-stone-700 italic">&ldquo;{issue.quotedText}&rdquo;</p>
+                          </div>
+                          <p className="text-sm text-stone-700 mb-2"><span className="font-medium">問題点：</span>{issue.whyCritical}</p>
+                          <p className="text-sm text-teal-700"><span className="font-medium">改善方向：</span>{issue.fixDirection}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* 再構築版 */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">RECONSTRUCTED VERSION</p>
+                  <p className="text-sm text-stone-600 mb-4">採用側視点で再構築した職務経歴書</p>
+                  <div className="bg-stone-50 border border-stone-200 p-6">
+                    <pre className="text-sm text-stone-800 whitespace-pre-wrap font-sans leading-relaxed">
+                      {documentReview.reconstruction.reconstructedVersion}
+                    </pre>
+                  </div>
+                </section>
+
+                {/* 行レベルの修正 */}
+                {documentReview.reconstruction.lineLevelRewrites.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">LINE-BY-LINE CHANGES</p>
+                    <div className="space-y-4">
+                      {documentReview.reconstruction.lineLevelRewrites.map((rewrite, i) => (
+                        <div key={i} className="border border-stone-200">
+                          <div className="grid grid-cols-2">
+                            <div className="p-4 bg-red-50 border-r border-stone-200">
+                              <p className="text-xs text-red-600 mb-1">BEFORE</p>
+                              <p className="text-sm text-stone-700 line-through">{rewrite.before}</p>
+                            </div>
+                            <div className="p-4 bg-teal-50">
+                              <p className="text-xs text-teal-600 mb-1">AFTER</p>
+                              <p className="text-sm text-stone-800">{rewrite.after}</p>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-stone-50 border-t border-stone-200">
+                            <p className="text-xs text-stone-600"><span className="font-medium">理由：</span>{rewrite.why}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* 確認が必要な質問 */}
+                {documentReview.reconstruction.clarificationNeeded && documentReview.reconstruction.clarificationNeeded.length > 0 && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-3">CLARIFICATION NEEDED</p>
+                    <p className="text-sm text-stone-600 mb-4">より精度の高い経歴書にするため、以下の情報があると効果的です</p>
+                    <div className="space-y-3">
+                      {documentReview.reconstruction.clarificationNeeded.map((item, i) => (
+                        <div key={i} className="bg-teal-50 border border-teal-200 p-4">
+                          <p className="text-sm font-medium text-stone-800 mb-1">{item.question}</p>
+                          <p className="text-xs text-stone-600 mb-2">{item.why}</p>
+                          <p className="text-xs text-teal-700">例：{item.placeholder}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* 再審査ボタン */}
+                <section className="border-t border-stone-200 pt-8">
+                  <button
+                    onClick={() => {
+                      setDocumentReview(null);
+                      handleDocumentReview();
+                    }}
+                    disabled={reviewLoading}
+                    className="bg-stone-800 text-white px-6 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 inline-flex items-center gap-2"
+                  >
+                    {reviewLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        再審査中...
+                      </>
+                    ) : (
+                      '再審査する'
+                    )}
+                  </button>
+                </section>
               </div>
             )}
           </div>
