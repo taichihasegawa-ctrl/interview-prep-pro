@@ -1,5 +1,5 @@
 // app/api/generate-questions/route.ts
-// 強化版：採用リスク分析に基づく質問生成 + PREP/STAR最適化
+// ポジション分析結果と連携した想定質問生成
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
@@ -8,13 +8,59 @@ const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   try {
-    const { jobInfo, resumeText, questionCount = 7 } = await req.json();
+    const { 
+      jobInfo, 
+      resumeText, 
+      questionCount = 7,
+      // ポジション分析結果（連携用）
+      positionAnalysis,
+      // Selection Outlook結果（連携用）
+      selectionOutlook
+    } = await req.json();
 
     if (!jobInfo?.trim()) {
       return NextResponse.json(
         { error: '求人情報を入力してください' },
         { status: 400 }
       );
+    }
+
+    // 連携データがある場合はプロンプトに組み込む
+    let contextSection = '';
+    
+    if (positionAnalysis) {
+      contextSection += `
+## 【重要】ポジション分析結果（この分析を踏まえて質問を設計せよ）
+- ポジションの実態: ${positionAnalysis.positionReality?.title || ''}
+- ${positionAnalysis.positionReality?.summary || ''}
+`;
+      if (positionAnalysis.interviewFocus?.keyQualities) {
+        contextSection += `- 面接で重視される資質:\n`;
+        positionAnalysis.interviewFocus.keyQualities.forEach((q: { quality: string; why: string }) => {
+          contextSection += `  - ${q.quality}: ${q.why}\n`;
+        });
+      }
+      if (positionAnalysis.interviewFocus?.possibleConcerns) {
+        contextSection += `- 採用側の懸念: ${positionAnalysis.interviewFocus.possibleConcerns}\n`;
+      }
+    }
+
+    if (selectionOutlook) {
+      contextSection += `
+## 【重要】Selection Outlook（この評価を踏まえて質問を設計せよ）
+- グレード: ${selectionOutlook.grade}（${selectionOutlook.totalScore}点/100点）
+- 書類通過率推定: ${selectionOutlook.passRateEstimate}
+`;
+      if (selectionOutlook.criticalGaps?.length > 0) {
+        contextSection += `- 致命的なギャップ: ${selectionOutlook.criticalGaps.join(', ')}\n`;
+      }
+      if (selectionOutlook.improvementPriorities?.length > 0) {
+        contextSection += `- 最優先対策: ${selectionOutlook.improvementPriorities.join(', ')}\n`;
+      }
+      contextSection += `
+→ これらのギャップを確認・払拭するための質問を必ず含めること
+→ 模範解答ではこれらの懸念を先回りして解消する内容にすること
+`;
     }
 
     const response = await client.messages.create({
@@ -25,14 +71,28 @@ export async function POST(req: NextRequest) {
           role: 'user',
           content: `あなたは採用面接の専門家です。求人票と職務経歴書を分析し、面接で聞かれる質問と模範解答を生成してください。
 
+## 絶対遵守ルール
+- 感情評価禁止
+- 主観表現禁止
+- 甘い励まし禁止
+- 模範解答は候補者の実際の経歴・数字を引用すること
+- 質問の意図は「面接官が本当に確認したいこと」を書く
+${contextSection}
+
 ## 求人情報
 ${jobInfo}
 
 ## 職務経歴書
 ${resumeText || '（未提供）'}
 
-## 出力形式
-以下のJSON形式のみを出力してください。説明やマークダウンは不要です。
+## 回答フレームワーク選択基準
+- 自己紹介・強み・弱み・志望動機 → PREP（結論→理由→具体例→結論）
+- 経験質問（困難、成功体験、失敗経験） → STAR（状況→課題→行動→結果）
+- 複合質問（考え方+経験を聞く） → PREP+STAR（結論→経験で根拠づけ）
+
+## 出力形式（JSON）
+
+以下のJSON形式のみを出力。説明文やマークダウン記号は不要。
 
 {
   "riskAnalysis": {
@@ -44,28 +104,32 @@ ${resumeText || '（未提供）'}
   "questions": [
     {
       "question": "質問文",
-      "category": "自己紹介",
-      "difficulty": "easy",
-      "interviewerIntent": "面接官がこの質問で確認したいこと",
-      "framework": "PREP",
+      "category": "自己紹介 | 志望動機 | 強み・弱み | 経験 | スキル | 価値観 | 逆質問対策",
+      "difficulty": "easy | medium | hard",
+      "interviewerIntent": "面接官がこの質問で本当に確認したいこと",
+      "linkedToGap": "この質問が検証する候補者のギャップ（あれば）",
+      "framework": "PREP | STAR | PREP+STAR",
       "answerStructure": {
-        "opening": "結論（最初の一文）",
-        "body": "理由と具体例、またはSTAR形式の説明",
-        "bridge": "御社でどう活かすか"
+        "opening": "結論（最初の15秒で言うべきこと）",
+        "body": "理由と具体例、またはSTAR形式の本論",
+        "bridge": "御社でどう活かすか・御社を志望する接続"
       },
-      "answer": "完成版の模範解答（200-300文字）",
-      "followUpQuestions": ["深掘り質問1", "深掘り質問2"],
-      "ngPatterns": ["避けるべき回答1"],
+      "answer": "完成版の模範解答（200-350文字）。候補者の経歴を具体的に引用すること",
+      "usedFromResume": ["回答に活用した経歴のポイント"],
+      "followUpQuestions": ["想定される深掘り質問1", "深掘り質問2"],
+      "ngPatterns": ["避けるべき回答パターン（具体的に）"],
       "answerDuration": "1分30秒"
     }
   ]
 }
 
-## 制約
-- 質問は${questionCount}個生成
-- frameworkは PREP / STAR / PREP+STAR のいずれか
-- difficultyは easy / medium / hard のいずれか
-- 必ず有効なJSONのみを出力（説明文やコードブロック記号は不要）`
+## 質問設計の指針
+1. 質問は${questionCount}個生成
+2. 面接の自然な流れ順（自己紹介→志望動機→経験→スキル→価値観→逆質問）
+3. ${selectionOutlook ? 'Selection Outlookで指摘されたギャップを確認する質問を必ず2問以上含める' : ''}
+4. ${positionAnalysis ? 'ポジション分析で特定された「面接で見られるポイント」に対応する質問を含める' : ''}
+5. 模範解答は「この候補者の経歴」を使って具体的に作成
+6. 逆質問対策も1問含める`
         }
       ]
     });
@@ -74,14 +138,13 @@ ${resumeText || '（未提供）'}
     
     console.log('API Response length:', text.length);
     
-    // JSON部分を抽出（```json ... ``` を除去）
+    // JSON抽出
     let jsonText = text;
     const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (codeBlockMatch) {
       jsonText = codeBlockMatch[1];
     }
     
-    // 最初の { から最後の } までを抽出
     const startIndex = jsonText.indexOf('{');
     const endIndex = jsonText.lastIndexOf('}');
     
@@ -98,7 +161,6 @@ ${resumeText || '（未提供）'}
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('JSON length:', jsonText.length);
-      console.error('JSON end:', jsonText.substring(jsonText.length - 200));
       return NextResponse.json({ error: 'JSON解析に失敗しました。もう一度お試しください。' }, { status: 500 });
     }
     
@@ -108,9 +170,8 @@ ${resumeText || '（未提供）'}
       category?: string;
       difficulty?: string;
       interviewerIntent?: string;
-      riskBeingChecked?: string;
+      linkedToGap?: string;
       framework?: string;
-      frameworkReason?: string;
       answer: string | { opening?: string; body?: string; bridge?: string; fullAnswer?: string };
       answerStructure?: { opening?: string; body?: string; bridge?: string };
       usedFromResume?: string[];
@@ -119,7 +180,6 @@ ${resumeText || '（未提供）'}
       ngPatterns?: string[];
       answerDuration?: string;
     }) => {
-      // answerが文字列かオブジェクトかを判定
       const answerText = typeof q.answer === 'string' 
         ? q.answer 
         : (q.answer?.fullAnswer || '');
@@ -136,9 +196,8 @@ ${resumeText || '（未提供）'}
         category: q.category,
         difficulty: q.difficulty,
         interviewerIntent: q.interviewerIntent,
-        riskBeingChecked: q.riskBeingChecked,
+        linkedToGap: q.linkedToGap,
         framework: q.framework,
-        frameworkReason: q.frameworkReason,
         answerStructure,
         usedFromResume: q.usedFromResume,
         idealAnswerPoints: q.idealAnswerPoints,

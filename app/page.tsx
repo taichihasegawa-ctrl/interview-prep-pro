@@ -169,55 +169,99 @@ type AgentMatchReasons = {
   youngCareer: { applicable: boolean; reasons: string[] };
 };
 
+// 市場評価（年収算出ロジック強化版）
+type SalaryAdjustment = {
+  value: string;
+  adjustment: string;
+};
+
+type SalaryEstimate = {
+  range: string;
+  median: number;
+  calculation: {
+    baseCategory: string;
+    baseAmount: number;
+    adjustments: {
+      experienceYears: SalaryAdjustment;
+      management: SalaryAdjustment;
+      quantification: SalaryAdjustment;
+      marketDemand: SalaryAdjustment;
+      globalExperience: SalaryAdjustment;
+      industry: SalaryAdjustment;
+    };
+    totalAdjustment: string;
+    calculatedMedian: number;
+  };
+  marketComment: string;
+};
+
+type MarketValue = {
+  summary: string;
+  demandLevel: 'high' | 'medium' | 'low';
+  supplyLevel: 'high' | 'medium' | 'low';
+  instantValue: string[];
+  growingSkills: string[];
+  competitivePosition: string;
+};
+
+type StrengthItem = {
+  assessment: string;
+  evidence: string;
+};
+
+type GrowthAreaItem = {
+  current: string;
+  action: string;
+};
+
+type CareerDirection = {
+  direction: string;
+  salaryPotential: string;
+  requiredSteps: string[];
+  relevantIndustries: string[];
+  // 後方互換性
+  description?: string;
+};
+
 type MarketEvaluation = {
-  marketView: {
+  // 新しい構造
+  salaryEstimate?: SalaryEstimate;
+  marketValue?: MarketValue;
+  strengths: {
+    execution: string | StrengthItem;
+    continuity: string | StrengthItem;
+    problemSolving: string | StrengthItem;
+  };
+  growthAreas: {
+    quantification: string | GrowthAreaItem;
+    decisionMaking: string | GrowthAreaItem;
+    crossFunctional: string | GrowthAreaItem;
+  };
+  careerDirections: CareerDirection[];
+  profileSummary?: {
+    totalExperience?: string;
+    currentLevel?: string;
+    primarySkills?: string[];
+    industries?: string[];
+    uniqueValue?: string;
+    // 後方互換性のための旧フィールド
+    experienceYears?: string;
+    jobCategory?: string;
+    seniorityLevel?: string;
+    estimatedSalaryRange?: string;
+    industryExperience?: string[];
+    uniqueStrengths?: string[];
+    leadershipExperience?: string;
+    careerHighlight?: string;
+  };
+  // 後方互換性のための旧フィールド
+  marketView?: {
     summary: string;
     instantValue: string[];
     growingDemand: string[];
     reproducibleResults: string[];
   };
-  // 新規: 想定年収レンジ
-  salaryEstimate?: {
-    range: string;  // 例: "420〜550万円"
-    currentComparison: 'up' | 'flat' | 'negotiation_needed';  // 上がる可能性/横ばい/要交渉
-    reasoning: string;  // 推定根拠
-    note: string;  // 注記（推定値である旨など）
-  };
-  // 新規: 選考通過可能性
-  selectionOutlook?: {
-    grade: 'A' | 'B' | 'C';  // A:高い / B:中程度 / C:要対策
-    comment: string;
-    keyFactors: string[];  // 合否を分けるポイント
-  };
-  // 新規: 競合候補者像
-  competitorProfile?: {
-    typicalBackground: string;  // この求人に応募しそうな人材像
-    competitiveAdvantages: string[];  // あなたの差別化ポイント
-    potentialWeaknesses: string[];  // 他候補に劣る可能性がある点
-  };
-  // 新規: 交渉時のポイント
-  negotiationLeverage?: {
-    salaryNegotiation: string[];  // 年収交渉で使える強み
-    conditionNegotiation: string[];  // 条件交渉で使えるポイント
-    timingAdvice: string;  // 交渉タイミングのアドバイス
-  };
-  strengths: {
-    execution: string;
-    continuity: string;
-    problemSolving: string;
-  };
-  growthAreas: {
-    quantification: string;
-    decisionMaking: string;
-    crossFunctional: string;
-  };
-  careerDirections: {
-    direction: string;
-    description: string;
-    relevantIndustries: string[];
-  }[];
-  profileSummary: ProfileSummary;
-  agentMatchReasons: AgentMatchReasons;
+  agentMatchReasons?: AgentMatchReasons;
 };
 
 type MatchedAgent = {
@@ -235,11 +279,31 @@ type MatchedAgent = {
   matchScore: number;
 };
 
+// Selection Outlook（選考通過可能性）
+type SelectionOutlookScore = {
+  score: number;
+  maxScore: number;
+  evidence: string;
+};
+
+type SelectionOutlook = {
+  grade: 'A' | 'B' | 'C' | 'D';
+  totalScore: number;
+  passRateEstimate: string;
+  scores: {
+    jobFit: SelectionOutlookScore;
+    reproducibility: SelectionOutlookScore;
+    decisionClarity: SelectionOutlookScore;
+    quantification: SelectionOutlookScore;
+    marketTrend: SelectionOutlookScore;
+  };
+  criticalGaps: string[];
+  improvementPriorities: string[];
+};
+
 type QuickDiagnosis = {
-  matchScore: number;
-  matchComment: string;
-  marketView: string;
-  instantValue: string[];
+  // 新しい構造
+  selectionOutlook: SelectionOutlook;
   positionReality: {
     title: string;
     summary: string;
@@ -247,7 +311,18 @@ type QuickDiagnosis = {
   interviewFocus?: {
     point: string;
     reason: string;
+    yourPreparation?: string;
   }[];
+  quickAdvice?: {
+    strengths: string[];
+    weaknesses: string[];
+    keyMessage: string;
+  };
+  // 後方互換性のため残す
+  matchScore?: number;
+  matchComment?: string;
+  marketView?: string;
+  instantValue?: string[];
 };
 
 export default function Home() {
@@ -395,10 +470,30 @@ export default function Home() {
     setShowModelAnswer({});
     
     try {
+      // ポジション分析とSelection Outlookがあれば連携
+      const requestBody: {
+        jobInfo: string;
+        resumeText: string;
+        questionCount: number;
+        positionAnalysis?: typeof positionAnalysis;
+        selectionOutlook?: SelectionOutlook;
+      } = { 
+        jobInfo, 
+        resumeText, 
+        questionCount: 7 
+      };
+      
+      if (positionAnalysis) {
+        requestBody.positionAnalysis = positionAnalysis;
+      }
+      if (quickDiagnosis?.selectionOutlook) {
+        requestBody.selectionOutlook = quickDiagnosis.selectionOutlook;
+      }
+
       const res = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobInfo, resumeText, questionCount: 7 }),
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
@@ -825,50 +920,172 @@ export default function Home() {
             ) : (
               <div className="space-y-10">
 
-                {/* マッチ度 */}
-                <section>
-                  <p className="text-xs text-stone-500 tracking-widest mb-6">MATCH SCORE</p>
-                  <div className="flex items-center gap-8">
-                    <div className="relative w-32 h-32">
-                      <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
-                        <circle cx="60" cy="60" r="50" stroke="#e7e5e4" strokeWidth="8" fill="none" />
-                        <circle
-                          cx="60" cy="60" r="50"
-                          stroke={quickDiagnosis.matchScore >= 70 ? '#0d9488' : quickDiagnosis.matchScore >= 40 ? '#f59e0b' : '#ef4444'}
-                          strokeWidth="8"
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeDasharray={`${quickDiagnosis.matchScore * 3.14} 314`}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl font-semibold text-stone-800">{quickDiagnosis.matchScore}<span className="text-lg text-stone-500">%</span></span>
+                {/* Selection Outlook */}
+                {quickDiagnosis.selectionOutlook && (
+                  <section>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">SELECTION OUTLOOK</p>
+                    
+                    {/* グレードと総合スコア */}
+                    <div className="bg-stone-800 text-white p-6 mb-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <span className={`text-5xl font-bold ${
+                            quickDiagnosis.selectionOutlook.grade === 'A' ? 'text-teal-400' :
+                            quickDiagnosis.selectionOutlook.grade === 'B' ? 'text-amber-400' :
+                            quickDiagnosis.selectionOutlook.grade === 'C' ? 'text-orange-400' : 'text-red-400'
+                          }`}>
+                            {quickDiagnosis.selectionOutlook.grade}
+                          </span>
+                          <div>
+                            <p className="text-2xl font-semibold">{quickDiagnosis.selectionOutlook.totalScore}<span className="text-lg text-stone-400">/100</span></p>
+                            <p className="text-sm text-stone-400">書類通過率: {quickDiagnosis.selectionOutlook.passRateEstimate}</p>
+                          </div>
+                        </div>
+                        <div className={`px-4 py-2 text-sm font-medium ${
+                          quickDiagnosis.selectionOutlook.grade === 'A' ? 'bg-teal-600' :
+                          quickDiagnosis.selectionOutlook.grade === 'B' ? 'bg-amber-600' :
+                          quickDiagnosis.selectionOutlook.grade === 'C' ? 'bg-orange-600' : 'bg-red-600'
+                        }`}>
+                          {quickDiagnosis.selectionOutlook.grade === 'A' ? '通過可能性:高' :
+                           quickDiagnosis.selectionOutlook.grade === 'B' ? '通過可能性:中' :
+                           quickDiagnosis.selectionOutlook.grade === 'C' ? '要対策' : '大幅改善要'}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-lg font-medium text-stone-800 mb-2">応募企業とのマッチ度</p>
-                      <p className="text-sm text-stone-600 leading-relaxed">{quickDiagnosis.matchComment}</p>
+
+                    {/* 5軸スコア */}
+                    <div className="space-y-4">
+                      {[
+                        { key: 'jobFit', label: '求人適合度', desc: '必須要件の充足率、経験の関連性' },
+                        { key: 'reproducibility', label: '再現性証明', desc: '実績が別環境でも出せる根拠' },
+                        { key: 'decisionClarity', label: '判断・戦略性', desc: '意思決定プロセスの明確さ' },
+                        { key: 'quantification', label: '数値化明瞭度', desc: '成果が定量的に示されているか' },
+                        { key: 'marketTrend', label: '市場トレンド', desc: '需要のあるスキル・経験か' },
+                      ].map((item) => {
+                        const scoreData = quickDiagnosis.selectionOutlook.scores[item.key as keyof typeof quickDiagnosis.selectionOutlook.scores];
+                        const percentage = (scoreData.score / scoreData.maxScore) * 100;
+                        return (
+                          <div key={item.key} className="border border-stone-200 p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="text-sm font-medium text-stone-800">{item.label}</p>
+                                <p className="text-xs text-stone-500">{item.desc}</p>
+                              </div>
+                              <span className={`text-lg font-bold ${
+                                percentage >= 70 ? 'text-teal-600' :
+                                percentage >= 50 ? 'text-amber-600' : 'text-red-600'
+                              }`}>
+                                {scoreData.score}/{scoreData.maxScore}
+                              </span>
+                            </div>
+                            <div className="h-2 bg-stone-200 rounded-full mb-2">
+                              <div 
+                                className={`h-2 rounded-full ${
+                                  percentage >= 70 ? 'bg-teal-500' :
+                                  percentage >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-stone-600">{scoreData.evidence}</p>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                </section>
 
-                {/* 市場評価サマリー */}
-                <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-3">MARKET VIEW</p>
-                  <p className="text-sm text-stone-800 leading-relaxed mb-6">{quickDiagnosis.marketView}</p>
+                    {/* 致命的なギャップ */}
+                    {quickDiagnosis.selectionOutlook.criticalGaps && quickDiagnosis.selectionOutlook.criticalGaps.length > 0 && (
+                      <div className="mt-6 bg-red-50 border border-red-200 p-4">
+                        <p className="text-xs font-medium text-red-700 mb-2">⚠️ 致命的なギャップ</p>
+                        <ul className="space-y-1">
+                          {quickDiagnosis.selectionOutlook.criticalGaps.map((gap, i) => (
+                            <li key={i} className="text-sm text-red-700 flex items-start gap-2">
+                              <span className="text-red-500">•</span>
+                              {gap}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                  <div>
-                    <p className="text-xs text-stone-500 mb-3">即戦力として評価されやすい経験</p>
-                    <div className="space-y-2">
-                      {quickDiagnosis.instantValue.map((v, i) => (
-                        <div key={i} className="flex items-start gap-2">
-                          <Check className="w-3 h-3 text-teal-600 mt-1 flex-shrink-0" />
-                          <p className="text-sm text-stone-700">{v}</p>
+                    {/* 最優先対策 */}
+                    {quickDiagnosis.selectionOutlook.improvementPriorities && quickDiagnosis.selectionOutlook.improvementPriorities.length > 0 && (
+                      <div className="mt-4 bg-teal-50 border border-teal-200 p-4">
+                        <p className="text-xs font-medium text-teal-700 mb-2">📋 最優先で対策すべきこと</p>
+                        <ol className="space-y-1">
+                          {quickDiagnosis.selectionOutlook.improvementPriorities.map((priority, i) => (
+                            <li key={i} className="text-sm text-teal-800 flex items-start gap-2">
+                              <span className="text-teal-600 font-medium">{i + 1}.</span>
+                              {priority}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* 後方互換性: 旧形式のマッチスコア */}
+                {!quickDiagnosis.selectionOutlook && quickDiagnosis.matchScore !== undefined && (
+                  <section>
+                    <p className="text-xs text-stone-500 tracking-widest mb-6">MATCH SCORE</p>
+                    <div className="flex items-center gap-8">
+                      <div className="relative w-32 h-32">
+                        <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r="50" stroke="#e7e5e4" strokeWidth="8" fill="none" />
+                          <circle
+                            cx="60" cy="60" r="50"
+                            stroke={quickDiagnosis.matchScore >= 70 ? '#0d9488' : quickDiagnosis.matchScore >= 40 ? '#f59e0b' : '#ef4444'}
+                            strokeWidth="8"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeDasharray={`${quickDiagnosis.matchScore * 3.14} 314`}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl font-semibold text-stone-800">{quickDiagnosis.matchScore}<span className="text-lg text-stone-500">%</span></span>
                         </div>
-                      ))}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-lg font-medium text-stone-800 mb-2">応募企業とのマッチ度</p>
+                        <p className="text-sm text-stone-600 leading-relaxed">{quickDiagnosis.matchComment}</p>
+                      </div>
                     </div>
-                  </div>
-                </section>
+                  </section>
+                )}
+
+                {/* Quick Advice */}
+                {quickDiagnosis.quickAdvice && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">QUICK ADVICE</p>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="bg-teal-50 p-4">
+                        <p className="text-xs font-medium text-teal-700 mb-2">強み</p>
+                        <ul className="space-y-1">
+                          {quickDiagnosis.quickAdvice.strengths.map((s, i) => (
+                            <li key={i} className="text-sm text-teal-800 flex items-start gap-1">
+                              <span className="text-teal-500">✓</span> {s}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="bg-amber-50 p-4">
+                        <p className="text-xs font-medium text-amber-700 mb-2">懸念点</p>
+                        <ul className="space-y-1">
+                          {quickDiagnosis.quickAdvice.weaknesses.map((w, i) => (
+                            <li key={i} className="text-sm text-amber-800 flex items-start gap-1">
+                              <span className="text-amber-500">!</span> {w}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="bg-stone-100 p-4">
+                      <p className="text-xs font-medium text-stone-600 mb-1">💡 面接で最も伝えるべきメッセージ</p>
+                      <p className="text-sm text-stone-800 font-medium">{quickDiagnosis.quickAdvice.keyMessage}</p>
+                    </div>
+                  </section>
+                )}
 
                 {/* ポジションの実態 */}
                 <section className="border-t border-stone-200 pt-8">

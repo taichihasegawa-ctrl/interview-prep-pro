@@ -1,3 +1,6 @@
+// app/api/quick-diagnosis/route.ts
+// Selection Outlook統合版クイック診断API
+
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -16,11 +19,20 @@ export async function POST(req: NextRequest) {
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2500,
+      max_tokens: 3500,
       messages: [
         {
           role: 'user',
-          content: `あなたは転職市場の専門アナリストです。以下の職務経歴と求人情報を分析し、クイック診断を行ってください。
+          content: `あなたは採用責任者として1000人以上を面接してきた経験を持つ専門家です。
+
+## 絶対遵守ルール
+- 感情評価禁止（「素晴らしい」「頑張っている」等）
+- 主観表現禁止（「〜と思われる」ではなく断定）
+- 数値根拠必須（スコアには必ず理由を付ける）
+- 甘い励まし禁止（現実的な評価のみ）
+- 改善可能性は具体的に明示
+
+## 入力データ
 
 【職務経歴】
 ${resumeText}
@@ -28,31 +40,80 @@ ${resumeText}
 【求人情報】
 ${jobInfo}
 
-以下のJSON形式で回答してください。JSONのみを返してください。
+## 評価タスク
+
+### Selection Outlook（選考通過可能性）
+以下の5軸で評価し、合計100点満点でスコアリングせよ。
+
+| 評価軸 | 配点 | 評価基準 |
+|--------|------|----------|
+| 求人要件との適合度 | 35点 | 必須要件の充足率、経験の関連性 |
+| 再現性の証明度 | 25点 | 実績が別環境でも出せる根拠があるか |
+| 判断・戦略性の明確さ | 20点 | 意思決定プロセスが見えるか |
+| 数値化の明瞭度 | 10点 | 成果が定量的に示されているか |
+| 市場トレンド適合 | 10点 | 需要のあるスキル・経験か |
+
+### グレード判定基準
+- A（80点以上）: 書類通過率80%以上想定
+- B（60-79点）: 書類通過率50%程度
+- C（40-59点）: 書類通過率30%程度
+- D（40点未満）: 書類通過困難、要大幅改善
+
+## 出力形式（JSON）
+
+以下のJSON形式のみを出力。説明文不要。
 
 {
-  "matchScore": <0-100の整数。候補者と求人の適合度をパーセントで評価>,
-  "matchComment": "<マッチ度についての1文の簡潔な評価コメント>",
-  "marketView": "<候補者の転職市場における客観的な評価を2-3文で>",
-  "instantValue": ["<即戦力として評価されやすい経験やスキル1>", "<2>", "<3>"],
+  "selectionOutlook": {
+    "grade": "<A | B | C | D>",
+    "totalScore": <0-100の整数>,
+    "passRateEstimate": "<書類通過率の推定。例: '50-60%'>",
+    "scores": {
+      "jobFit": {
+        "score": <0-35の整数>,
+        "maxScore": 35,
+        "evidence": "<このスコアの具体的根拠>"
+      },
+      "reproducibility": {
+        "score": <0-25の整数>,
+        "maxScore": 25,
+        "evidence": "<このスコアの具体的根拠>"
+      },
+      "decisionClarity": {
+        "score": <0-20の整数>,
+        "maxScore": 20,
+        "evidence": "<このスコアの具体的根拠>"
+      },
+      "quantification": {
+        "score": <0-10の整数>,
+        "maxScore": 10,
+        "evidence": "<このスコアの具体的根拠>"
+      },
+      "marketTrend": {
+        "score": <0-10の整数>,
+        "maxScore": 10,
+        "evidence": "<このスコアの具体的根拠>"
+      }
+    },
+    "criticalGaps": ["<致命的なギャップ1>", "<ギャップ2>"],
+    "improvementPriorities": ["<最優先で対策すべきこと1>", "<対策2>", "<対策3>"]
+  },
   "positionReality": {
     "title": "<求人の本質を突いた1行タイトル>",
-    "summary": "<このポジションの実態を3-4文で。求人票の表面的な記載ではなく、実際に何が求められるかを分析>"
+    "summary": "<このポジションの実態を3-4文で>"
   },
   "interviewFocus": [
     {
-      "point": "<面接で確認されそうなポイント1（例：チーム連携の経験）>",
-      "reason": "<なぜ企業がこのポイントを確認したいのか、1文で>"
-    },
-    {
-      "point": "<面接で確認されそうなポイント2>",
-      "reason": "<理由>"
-    },
-    {
-      "point": "<面接で確認されそうなポイント3>",
-      "reason": "<理由>"
+      "point": "<面接で確認されるポイント>",
+      "reason": "<なぜこれを確認するか>",
+      "yourPreparation": "<この候補者が準備すべきこと>"
     }
-  ]
+  ],
+  "quickAdvice": {
+    "strengths": ["<即戦力として評価される点1>", "<点2>"],
+    "weaknesses": ["<懸念される点1>", "<点2>"],
+    "keyMessage": "<面接で最も伝えるべき1つのメッセージ>"
+  }
 }`
         }
       ]
@@ -60,13 +121,18 @@ ${jobInfo}
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // JSON部分を抽出
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // JSON抽出
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+    
+    if (startIndex === -1 || endIndex === -1) {
+      console.error('JSON not found:', text.substring(0, 500));
       return NextResponse.json({ error: '解析に失敗しました' }, { status: 500 });
     }
 
-    const result = JSON.parse(jsonMatch[0]);
+    const jsonText = text.substring(startIndex, endIndex + 1);
+    const result = JSON.parse(jsonText);
+    
     return NextResponse.json(result);
   } catch (error) {
     console.error('Quick diagnosis error:', error);

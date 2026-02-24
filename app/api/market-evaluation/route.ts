@@ -1,4 +1,6 @@
 // app/api/market-evaluation/route.ts
+// 年収算出ロジック強化版 - 職務経歴書のみで市場価値を評価
+
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -6,7 +8,7 @@ const client = new Anthropic();
 
 export async function POST(req: NextRequest) {
   try {
-    const { resumeText, jobInfo } = await req.json();
+    const { resumeText } = await req.json();
 
     if (!resumeText?.trim()) {
       return NextResponse.json(
@@ -15,130 +17,202 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hasJobInfo = jobInfo?.trim();
-
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4500,
+      max_tokens: 4000,
       messages: [
         {
           role: 'user',
-          content: `あなたは日本の転職市場に精通したキャリアアナリストです。以下の職務経歴${hasJobInfo ? 'と求人情報' : ''}を分析し、市場評価を行ってください。
+          content: `あなたは転職市場データに基づき、職務経歴書から現実的な年収レンジを算出する専門アナリストです。
 
-【職務経歴】
+## 絶対遵守ルール
+- 感情評価禁止
+- 主観表現禁止
+- 数値根拠必須
+- 甘い励まし禁止
+- 過度なポジティブ推定禁止
+- 上場企業役員クラスでない限り1500万円超を出さない
+- 補正は合計+40%を上限、-30%を下限とする
+- 新卒3年未満でない限り350万円未満を出さない
+
+## 職務経歴
 ${resumeText}
 
-${hasJobInfo ? `【求人情報】
-${jobInfo}
+## 年収算出ロジック
 
-` : ''}以下のJSON形式で回答してください。JSONのみを返してください。
+### ① ベース中央値（職種カテゴリ別）
+- 事務系/アシスタント：400万円
+- 販売/サービス：420万円
+- 営業（一般）：500万円
+- IT/技術系：560万円
+- 企画/管理系：650万円
+- 専門職（コンサル等）：750万円
+- 管理職（中堅）：850万円
+- 外資系専門/管理職：1000万円
+- シニアスペシャリスト：900万円
+
+### ② 補正ロジック
+
+■ 経験年数補正
+- 3年未満：-10%
+- 3-7年：±0%
+- 8-15年：+10%
+- 15年以上：+15%
+
+■ マネジメント経験
+- チームリード（3名以上）：+5%
+- 管理職（5名以上）：+10%
+- 部門責任者：+15%
+
+■ 成果定量性
+- 定量実績なし：-5%
+- 売上○%改善など数値あり：+5%
+- KGI/KPIレベルで再現性高い：+10%
+
+■ 市場需要補正
+- AI/IT/DX関連：+10%
+- データ分析スキル：+5%
+- 汎用職種：±0%
+
+■ 外資/英語使用経験
+- ビジネス英語あり：+5%
+- グローバル企業経験：+10%
+
+■ 業界補正
+- 金融/コンサル：+15%
+- IT/SaaS：+10%
+- メーカー大手：+5%
+- 小売/サービス：-5%
+- 中小/ベンチャー：-10%
+
+### ③ 算出式
+想定中央値 = ベース中央値 × (1 + 補正合計%)
+想定レンジ = 中央値 ± 15%
+
+## 出力形式（JSON）
+
+以下のJSON形式のみを出力。説明文不要。
 
 {
-  "marketView": {
-    "summary": "<2-3文で候補者の市場価値を客観的に評価>",
-    "instantValue": ["<即戦力として評価される経験やスキル1>", "<2>", "<3>"],
-    "growingDemand": ["<需要が伸びているスキル1>", "<2>", "<3>"],
-    "reproducibleResults": ["<再現性のある実績1>", "<2>", "<3>"]
-  },
   "salaryEstimate": {
-    "range": "<想定年収レンジ。例: '420〜550万円'>",
-    "currentComparison": "<'up' | 'flat' | 'negotiation_needed' のいずれか。up=上がる可能性が高い、flat=横ばい、negotiation_needed=要交渉>",
-    "reasoning": "<年収レンジの推定根拠を1-2文で>",
-    "note": "<推定値である旨の注記。例: 'この年収レンジは経験・スキルと市場相場から推定したものです。実際の提示額は企業の給与体系や評価により異なります。'>"
+    "range": "<例: '450万円〜610万円'>",
+    "median": <中央値の数値。例: 530>,
+    "calculation": {
+      "baseCategory": "<選択した職種カテゴリ>",
+      "baseAmount": <ベース中央値>,
+      "adjustments": {
+        "experienceYears": {
+          "value": "<例: '4年'>",
+          "adjustment": "<例: '±0%'>"
+        },
+        "management": {
+          "value": "<例: '8名のチームリード'>",
+          "adjustment": "<例: '+5%'>"
+        },
+        "quantification": {
+          "value": "<例: '売上115%達成など数値実績あり'>",
+          "adjustment": "<例: '+5%'>"
+        },
+        "marketDemand": {
+          "value": "<例: 'SaaS営業スキル'>",
+          "adjustment": "<例: '+10%'>"
+        },
+        "globalExperience": {
+          "value": "<例: 'なし'>",
+          "adjustment": "<例: '±0%'>"
+        },
+        "industry": {
+          "value": "<例: 'IT/SaaS'>",
+          "adjustment": "<例: '+10%'>"
+        }
+      },
+      "totalAdjustment": "<例: '+30%'>",
+      "calculatedMedian": <計算結果の中央値>
+    },
+    "marketComment": "<転職市場におけるこの年収帯の評価を2-3文で。根拠ある客観的評価のみ>"
   },
-  "selectionOutlook": {
-    "grade": "<'A' | 'B' | 'C' のいずれか。A=書類・面接通過可能性が高い、B=中程度、C=要対策>",
-    "comment": "<選考通過可能性についてのコメントを1-2文で>",
-    "keyFactors": ["<合否を分ける重要なポイント1>", "<2>", "<3>"]
-  },
-  "competitorProfile": {
-    "typicalBackground": "<この求人に応募しそうな他の候補者像を2-3文で具体的に>",
-    "competitiveAdvantages": ["<この候補者が他候補に勝っている点1>", "<2>", "<3>"],
-    "potentialWeaknesses": ["<他候補に劣る可能性がある点1>", "<2>"]
-  },
-  "negotiationLeverage": {
-    "salaryNegotiation": ["<年収交渉で使える強み・材料1>", "<2>", "<3>"],
-    "conditionNegotiation": ["<条件交渉（勤務地、リモート、役職等）で使えるポイント1>", "<2>"],
-    "timingAdvice": "<交渉タイミングのアドバイス（いつ、どの段階で交渉すべきか）を1-2文で>"
+  "marketValue": {
+    "summary": "<市場価値の客観的評価を2-3文で>",
+    "demandLevel": "<high | medium | low>",
+    "supplyLevel": "<high | medium | low>",
+    "instantValue": ["<即戦力として評価される点1>", "<点2>", "<点3>"],
+    "growingSkills": ["<需要が伸びているスキル1>", "<スキル2>"],
+    "competitivePosition": "<同スキル帯での競争力評価を1-2文で>"
   },
   "strengths": {
-    "execution": "<実行力についての1文評価>",
-    "continuity": "<継続性についての1文評価>",
-    "problemSolving": "<問題解決力についての1文評価>"
+    "execution": {
+      "assessment": "<実行力の評価を1文で>",
+      "evidence": "<根拠となる経歴の引用>"
+    },
+    "continuity": {
+      "assessment": "<継続性の評価を1文で>",
+      "evidence": "<根拠>"
+    },
+    "problemSolving": {
+      "assessment": "<問題解決力の評価を1文で>",
+      "evidence": "<根拠>"
+    }
   },
   "growthAreas": {
-    "quantification": "<成果の数値化について、具体的な改善アドバイス>",
-    "decisionMaking": "<意思決定経験について、具体的な改善アドバイス>",
-    "crossFunctional": "<横断プロジェクトについて、具体的な改善アドバイス>"
+    "quantification": {
+      "current": "<現状の課題>",
+      "action": "<具体的な改善アクション>"
+    },
+    "decisionMaking": {
+      "current": "<現状の課題>",
+      "action": "<具体的な改善アクション>"
+    },
+    "crossFunctional": {
+      "current": "<現状の課題>",
+      "action": "<具体的な改善アクション>"
+    }
   },
   "careerDirections": [
     {
-      "direction": "<キャリア方向性1の名称>",
-      "description": "<その方向性の説明と適性理由>",
-      "relevantIndustries": ["<関連業界1>", "<関連業界2>"]
+      "direction": "<キャリア方向性1>",
+      "salaryPotential": "<この方向での年収ポテンシャル>",
+      "requiredSteps": ["<必要なステップ1>", "<ステップ2>"],
+      "relevantIndustries": ["<業界1>", "<業界2>"]
     },
     {
-      "direction": "<キャリア方向性2の名称>",
-      "description": "<その方向性の説明と適性理由>",
-      "relevantIndustries": ["<関連業界1>", "<関連業界2>"]
+      "direction": "<キャリア方向性2>",
+      "salaryPotential": "<年収ポテンシャル>",
+      "requiredSteps": ["<ステップ1>"],
+      "relevantIndustries": ["<業界1>"]
     },
     {
-      "direction": "<キャリア方向性3の名称>",
-      "description": "<その方向性の説明と適性理由>",
-      "relevantIndustries": ["<関連業界1>", "<関連業界2>"]
+      "direction": "<キャリア方向性3>",
+      "salaryPotential": "<年収ポテンシャル>",
+      "requiredSteps": ["<ステップ1>"],
+      "relevantIndustries": ["<業界1>"]
     }
   ],
   "profileSummary": {
-    "primarySkills": ["<主要スキル1>", "<2>", "<3>"],
-    "experienceYears": "<総経験年数>",
-    "jobCategory": "<職種カテゴリ（営業、エンジニア、マーケティング等）>",
-    "seniorityLevel": "<シニアリティ（ジュニア/ミドル/シニア/マネージャー）>",
-    "estimatedSalaryRange": "<想定年収レンジ>",
-    "industryExperience": ["<経験業界1>", "<2>"],
-    "uniqueStrengths": ["<ユニークな強み1>", "<2>"],
-    "leadershipExperience": "<リーダーシップ経験の有無と内容>",
-    "careerHighlight": "<キャリアハイライト（最も印象的な実績）>"
-  },
-  "agentMatchReasons": {
-    "itSpecialist": {
-      "applicable": <true/false>,
-      "reasons": ["<IT専門エージェントが適している理由1>", "<2>"]
-    },
-    "highClass": {
-      "applicable": <true/false>,
-      "reasons": ["<ハイクラスエージェントが適している理由1>", "<2>"]
-    },
-    "general": {
-      "applicable": <true/false>,
-      "reasons": ["<総合型エージェントが適している理由1>", "<2>"]
-    },
-    "youngCareer": {
-      "applicable": <true/false>,
-      "reasons": ["<20代・若手向けエージェントが適している理由1>", "<2>"]
-    }
+    "totalExperience": "<総経験年数>",
+    "currentLevel": "<ジュニア | ミドル | シニア | マネージャー>",
+    "primarySkills": ["<主要スキル1>", "<スキル2>", "<スキル3>"],
+    "industries": ["<経験業界1>", "<業界2>"],
+    "uniqueValue": "<この候補者のユニークな価値を1文で>"
   }
-}
-
-重要な注意点:
-- salaryEstimate.range は日本円で具体的な数値レンジを記載（例：420〜550万円）
-- selectionOutlook.grade は候補者の経歴と求人要件のマッチ度から判断
-- competitorProfile は${hasJobInfo ? 'この具体的な求人に' : '同様のポジションに'}応募しそうな他の候補者を想定
-- negotiationLeverage は具体的で実践的なアドバイスを記載
-- すべて日本語で回答
-- agentMatchReasons では、該当しない場合は applicable: false として reasons は空配列`
+}`
         }
       ]
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // JSON部分を抽出
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // JSON抽出
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+    
+    if (startIndex === -1 || endIndex === -1) {
+      console.error('JSON not found:', text.substring(0, 500));
       return NextResponse.json({ error: '解析に失敗しました' }, { status: 500 });
     }
 
-    const result = JSON.parse(jsonMatch[0]);
+    const jsonText = text.substring(startIndex, endIndex + 1);
+    const result = JSON.parse(jsonText);
+    
     return NextResponse.json(result);
   } catch (error) {
     console.error('Market evaluation error:', error);
