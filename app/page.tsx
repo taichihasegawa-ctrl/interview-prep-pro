@@ -642,33 +642,15 @@ export default function Home() {
     setQuickLoading(true);
     setQuickError('');
     setQuickDiagnosis(null);
-    setQuickAgents([]);
     try {
-      // クイック診断APIとマーケット評価APIを並列呼び出し
-      const [quickRes, marketRes] = await Promise.all([
-        fetch('/api/quick-diagnosis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resumeText, jobInfo }),
-        }),
-        fetch('/api/market-evaluation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resumeText, jobInfo }),
-        }),
-      ]);
+      const quickRes = await fetch('/api/quick-diagnosis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeText, jobInfo }),
+      });
       const quickData = await quickRes.json();
       if (!quickRes.ok) throw new Error(quickData.error || 'エラーが発生しました');
       setQuickDiagnosis(quickData);
-
-      if (marketRes.ok) {
-        const marketData = await marketRes.json();
-        setMarketEvaluation(marketData);
-        const agentsModule = await import('@/lib/agents');
-        const matched = agentsModule.matchAgentsWithReasons(marketData.agentMatchReasons, 3);
-        setMatchedAgents(matched);
-        setQuickAgents(matched);
-      }
     } catch (error) {
       setQuickError(error instanceof Error ? error.message : 'エラーが発生しました');
     } finally {
@@ -782,26 +764,51 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex gap-8">
             {[
-              { id: 'prepare', label: '準備', free: true },
-              { id: 'quick', label: 'クイック診断', free: true },
-              { id: 'position', label: 'ポジション分析', free: false },
-              { id: 'questions', label: '想定質問', free: false },
-              { id: 'review', label: '経歴書審査', free: false },
-              { id: 'market', label: '市場評価', free: false },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handlePaidTabAccess(tab.id)}
-                className={`py-3 text-sm border-b-2 transition-colors flex items-center gap-1 ${
-                  activeTab === tab.id
-                    ? 'border-stone-800 text-stone-800 font-medium'
-                    : 'border-transparent text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {tab.label}
-                {!tab.free && !isPaid && <span className="text-xs text-amber-600">PRO</span>}
-              </button>
-            ))}
+              { id: 'prepare', label: '準備', step: 1 },
+              { id: 'quick', label: 'クイック診断', step: 2 },
+              { id: 'position', label: 'ポジション分析', step: 3 },
+              { id: 'questions', label: '想定質問', step: 4 },
+              { id: 'review', label: '経歴書審査', step: 5 },
+              { id: 'market', label: '市場評価', step: 6 },
+            ].map((tab) => {
+              // ステップ制御: 前のステップが完了していないとロック
+              const isUnlocked = 
+                tab.step === 1 ||
+                (tab.step === 2 && resumeText.trim() && jobInfo.trim()) ||
+                (tab.step === 3 && quickDiagnosis) ||
+                (tab.step === 4 && positionAnalysis) ||
+                (tab.step === 5 && questions.length > 0) ||
+                (tab.step === 6 && documentReview);
+              
+              const isPro = tab.step >= 3;
+              const isLocked = !isUnlocked || (isPro && !isPaid);
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (isLocked && isPro && !isPaid) {
+                      setShowPaywall(true);
+                    } else if (!isLocked) {
+                      setActiveTab(tab.id);
+                    }
+                  }}
+                  disabled={!isUnlocked && !isPro}
+                  className={`py-3 text-sm border-b-2 transition-colors flex items-center gap-1 ${
+                    activeTab === tab.id
+                      ? 'border-stone-800 text-stone-800 font-medium'
+                      : isLocked
+                      ? 'border-transparent text-stone-300 cursor-not-allowed'
+                      : 'border-transparent text-stone-500 hover:text-stone-700'
+                  }`}
+                >
+                  <span className={`text-xs mr-1 ${isLocked ? 'text-stone-300' : 'text-stone-400'}`}>{tab.step}</span>
+                  {tab.label}
+                  {isPro && !isPaid && <span className="text-xs text-amber-600 ml-1">PRO</span>}
+                  {isUnlocked && tab.step > 1 && <Check className="w-3 h-3 text-teal-500 ml-1" />}
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>
@@ -1111,10 +1118,10 @@ export default function Home() {
                   </section>
                 )}
 
-                {/* NEXT STEP - 詳細分析への誘導 */}
+                {/* NEXT STEP - ポジション分析へ */}
                 <section className="border-t border-stone-200 pt-8">
                   <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
-                  <p className="text-sm text-stone-600 mb-4">より詳細な分析で面接準備を万全に</p>
+                  <p className="text-sm text-stone-600 mb-4">ポジションの詳細を分析して面接対策を進めましょう</p>
                   {!isPaid && (
                     <div className="bg-gradient-to-r from-amber-50 to-stone-50 border border-amber-100 p-4 mb-4">
                       <p className="text-sm text-stone-700">
@@ -1122,42 +1129,30 @@ export default function Home() {
                       </p>
                     </div>
                   )}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        if (handlePaidTabAccess('position')) {
-                          if (!positionAnalysis) handlePositionAnalysis();
-                        }
-                      }}
-                      className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
-                    >
-                      ポジション詳細分析
-                      {!isPaid && <span className="text-xs text-amber-300">PRO</span>}
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (handlePaidTabAccess('questions')) {
-                          if (questions.length === 0) handleGenerateQuestions();
-                        }
-                      }}
-                      className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors flex items-center gap-2"
-                    >
-                      想定質問を生成
-                      {!isPaid && <span className="text-xs text-amber-600">PRO</span>}
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      if (handlePaidTabAccess('position')) {
+                        setActiveTab('position');
+                        if (!positionAnalysis) handlePositionAnalysis();
+                      }
+                    }}
+                    disabled={positionLoading}
+                    className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {positionLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        分析中...
+                      </>
+                    ) : (
+                      <>
+                        ポジション分析へ進む
+                        {!isPaid && <span className="text-xs text-amber-300">PRO</span>}
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
                 </section>
-
-                {/* エージェント紹介（将来実装用・現在非表示）
-                {quickAgents.length > 0 && marketEvaluation && (
-                  <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-2">RECOMMENDED AGENTS</p>
-                    ...
-                  </section>
-                )}
-                */}
 
               </div>
             )}
@@ -1370,25 +1365,27 @@ export default function Home() {
                   {/* 次のステップ誘導 */}
                   <section className="border-t border-stone-200 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
-                    <p className="text-sm text-stone-600 mb-4">分析結果をもとに、面接対策を進めましょう</p>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => {
-                          setActiveTab('questions');
-                          if (questions.length === 0) handleGenerateQuestions();
-                        }}
-                        className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2"
-                      >
-                        想定質問を生成
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('market')}
-                        className="border border-stone-300 text-stone-600 px-6 py-2.5 text-sm hover:bg-stone-50 transition-colors"
-                      >
-                        市場評価を見る
-                      </button>
-                    </div>
+                    <p className="text-sm text-stone-600 mb-4">分析結果をもとに、想定質問を生成しましょう</p>
+                    <button
+                      onClick={() => {
+                        setActiveTab('questions');
+                        if (questions.length === 0) handleGenerateQuestions();
+                      }}
+                      disabled={questionLoading}
+                      className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {questionLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          生成中...
+                        </>
+                      ) : (
+                        <>
+                          想定質問を生成
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
                   </section>
               </div>
             )}
@@ -1734,28 +1731,27 @@ export default function Home() {
                   </div>
                 ))}
 
-                {/* 市場評価への誘導 */}
+                {/* 経歴書審査への誘導 */}
                 {resumeText.trim() && (
                   <section className="border-t border-stone-200 mt-8 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-3">NEXT STEP</p>
-                    <p className="text-sm text-stone-600 mb-4">あなたの経歴が市場でどう評価されるか確認しましょう</p>
+                    <p className="text-sm text-stone-600 mb-4">職務経歴書を採用担当者の視点で審査しましょう</p>
                     <button
                       onClick={() => {
-                        if (handlePaidTabAccess('market')) {
-                          if (!marketEvaluation) handleMarketEvaluation();
-                        }
+                        setActiveTab('review');
+                        if (!documentReview) handleDocumentReview();
                       }}
-                      disabled={marketLoading}
-                      className="bg-stone-800 text-white px-6 py-2.5 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                      disabled={reviewLoading}
+                      className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
                     >
-                      {marketLoading ? (
+                      {reviewLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          分析中...
+                          審査中...
                         </>
                       ) : (
                         <>
-                          市場評価を見る
+                          経歴書審査へ進む
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}
@@ -1977,14 +1973,14 @@ export default function Home() {
                 )}
 
                 {/* 再審査ボタン */}
-                <section className="border-t border-stone-200 pt-8">
+                <section className="border-t border-stone-200 pt-8 flex gap-4">
                   <button
                     onClick={() => {
                       setDocumentReview(null);
                       handleDocumentReview();
                     }}
                     disabled={reviewLoading}
-                    className="bg-stone-800 text-white px-6 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 inline-flex items-center gap-2"
+                    className="border border-stone-300 text-stone-600 px-6 py-3 text-sm hover:bg-stone-50 transition-colors disabled:opacity-40 inline-flex items-center gap-2"
                   >
                     {reviewLoading ? (
                       <>
@@ -1993,6 +1989,32 @@ export default function Home() {
                       </>
                     ) : (
                       '再審査する'
+                    )}
+                  </button>
+                </section>
+
+                {/* 市場評価へ進む */}
+                <section className="border-t border-stone-200 pt-8 mt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">NEXT STEP</p>
+                  <p className="text-sm text-stone-600 mb-4">最後に、あなたの市場価値を確認しましょう</p>
+                  <button
+                    onClick={() => {
+                      setActiveTab('market');
+                      if (!marketEvaluation) handleMarketEvaluation();
+                    }}
+                    disabled={marketLoading}
+                    className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {marketLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        分析中...
+                      </>
+                    ) : (
+                      <>
+                        市場評価へ進む
+                        <ArrowRight className="w-4 h-4" />
+                      </>
                     )}
                   </button>
                 </section>
@@ -2056,41 +2078,6 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* 算出根拠 */}
-                    {marketEvaluation.salaryEstimate.calculation && (
-                      <div className="bg-stone-50 border border-stone-200 p-4 mb-4">
-                        <p className="text-xs text-stone-500 mb-3">算出根拠</p>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-stone-600">職種カテゴリ</span>
-                            <span className="text-stone-800">{marketEvaluation.salaryEstimate.calculation.baseCategory} = {marketEvaluation.salaryEstimate.calculation.baseAmount}万円</span>
-                          </div>
-                          {Object.entries(marketEvaluation.salaryEstimate.calculation.adjustments).map(([key, adj]) => (
-                            <div key={key} className="flex justify-between">
-                              <span className="text-stone-600">
-                                {key === 'experienceYears' ? '経験年数補正' :
-                                 key === 'management' ? 'マネジメント補正' :
-                                 key === 'quantification' ? '成果補正' :
-                                 key === 'marketDemand' ? '市場補正' :
-                                 key === 'globalExperience' ? '英語/外資補正' :
-                                 key === 'industry' ? '業界補正' : key}
-                              </span>
-                              <span className={`${
-                                adj.adjustment.includes('+') ? 'text-teal-600' :
-                                adj.adjustment.includes('-') ? 'text-red-600' : 'text-stone-600'
-                              }`}>
-                                {adj.value} → {adj.adjustment}
-                              </span>
-                            </div>
-                          ))}
-                          <div className="border-t border-stone-300 pt-2 mt-2 flex justify-between font-medium">
-                            <span className="text-stone-700">合計補正</span>
-                            <span className="text-teal-600">{marketEvaluation.salaryEstimate.calculation.totalAdjustment}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                     
                     {marketEvaluation.salaryEstimate.marketComment && (
                       <p className="text-sm text-stone-600 leading-relaxed">{marketEvaluation.salaryEstimate.marketComment}</p>
