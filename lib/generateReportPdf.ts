@@ -828,38 +828,7 @@ export function downloadReportPdf(data: ReportData) {
       
       pdf.y += 35;
 
-      // 算出根拠
-      pdf.setFont(9, C.dark);
-      doc.text('算出根拠', pdf.marginLeft, pdf.y);
-      pdf.y += 6;
-
-      const calc = se.calculation;
-      if (calc) {
-        const adjustmentItems = [
-          { label: '職種カテゴリ', value: `${calc.baseCategory} = ${calc.baseAmount}万円` },
-          { label: '経験年数補正', value: `${calc.adjustments.experienceYears.value} → ${calc.adjustments.experienceYears.adjustment}` },
-          { label: 'マネジメント補正', value: `${calc.adjustments.management.value} → ${calc.adjustments.management.adjustment}` },
-          { label: '成果補正', value: `${calc.adjustments.quantification.value} → ${calc.adjustments.quantification.adjustment}` },
-          { label: '市場補正', value: `${calc.adjustments.marketDemand.value} → ${calc.adjustments.marketDemand.adjustment}` },
-          { label: '英語/外資補正', value: `${calc.adjustments.globalExperience.value} → ${calc.adjustments.globalExperience.adjustment}` },
-          { label: '業界補正', value: `${calc.adjustments.industry.value} → ${calc.adjustments.industry.adjustment}` },
-        ];
-
-        for (const item of adjustmentItems) {
-          pdf.checkPageBreak(6);
-          pdf.setFont(8, C.mid);
-          doc.text(`・${item.label}:`, pdf.marginLeft + 3, pdf.y);
-          pdf.setFont(8, C.dark);
-          doc.text(item.value, pdf.marginLeft + 45, pdf.y);
-          pdf.y += 5;
-        }
-        
-        pdf.y += 2;
-        pdf.setFont(9, C.teal);
-        doc.text(`合計補正: ${calc.totalAdjustment}`, pdf.marginLeft + 3, pdf.y);
-        pdf.y += 8;
-      }
-
+      // マーケットコメントのみ表示（算出根拠は非表示）
       if (se.marketComment) {
         pdf.setFont(8, C.mid);
         const commentLines = doc.splitTextToSize(se.marketComment, pdf.contentWidth - 10);
