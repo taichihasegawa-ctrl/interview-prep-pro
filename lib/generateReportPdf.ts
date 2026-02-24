@@ -46,13 +46,104 @@ type PositionAnalysis = {
   };
 };
 
+// Selection Outlook（選考通過可能性）
+type SelectionOutlookScore = {
+  score: number;
+  maxScore: number;
+  evidence: string;
+};
+
+type SelectionOutlook = {
+  grade: 'A' | 'B' | 'C' | 'D';
+  totalScore: number;
+  passRateEstimate: string;
+  scores: {
+    jobFit: SelectionOutlookScore;
+    reproducibility: SelectionOutlookScore;
+    decisionClarity: SelectionOutlookScore;
+    quantification: SelectionOutlookScore;
+    marketTrend: SelectionOutlookScore;
+  };
+  criticalGaps: string[];
+  improvementPriorities: string[];
+};
+
+type QuickDiagnosis = {
+  selectionOutlook?: SelectionOutlook;
+  positionReality?: { title: string; summary: string };
+  interviewFocus?: { point: string; reason: string; yourPreparation?: string }[];
+  quickAdvice?: { strengths: string[]; weaknesses: string[]; keyMessage: string };
+  // 後方互換性
+  matchScore?: number;
+  matchComment?: string;
+  marketView?: string;
+  instantValue?: string[];
+};
+
+// 市場評価（年収算出ロジック強化版）
+type SalaryAdjustment = { value: string; adjustment: string };
+type SalaryEstimate = {
+  range: string;
+  median: number;
+  calculation: {
+    baseCategory: string;
+    baseAmount: number;
+    adjustments: {
+      experienceYears: SalaryAdjustment;
+      management: SalaryAdjustment;
+      quantification: SalaryAdjustment;
+      marketDemand: SalaryAdjustment;
+      globalExperience: SalaryAdjustment;
+      industry: SalaryAdjustment;
+    };
+    totalAdjustment: string;
+    calculatedMedian: number;
+  };
+  marketComment: string;
+};
+
+type MarketValue = {
+  summary: string;
+  demandLevel: 'high' | 'medium' | 'low';
+  supplyLevel: 'high' | 'medium' | 'low';
+  instantValue: string[];
+  growingSkills: string[];
+  competitivePosition: string;
+};
+
+type StrengthItem = { assessment: string; evidence: string };
+type GrowthAreaItem = { current: string; action: string };
+
 type MarketEvaluation = {
-  marketView: { summary: string; instantValue: string[]; growingDemand: string[]; reproducibleResults: string[] };
-  strengths: { execution: string; continuity: string; problemSolving: string };
-  growthAreas: { quantification: string; decisionMaking: string; crossFunctional: string };
-  careerDirections: { direction: string; description: string; relevantIndustries: string[] }[];
-  profileSummary?: unknown;
-  agentMatchReasons?: unknown;
+  // 新しい構造
+  salaryEstimate?: SalaryEstimate;
+  marketValue?: MarketValue;
+  strengths: {
+    execution: string | StrengthItem;
+    continuity: string | StrengthItem;
+    problemSolving: string | StrengthItem;
+  };
+  growthAreas: {
+    quantification: string | GrowthAreaItem;
+    decisionMaking: string | GrowthAreaItem;
+    crossFunctional: string | GrowthAreaItem;
+  };
+  careerDirections: {
+    direction: string;
+    description?: string;
+    salaryPotential?: string;
+    requiredSteps?: string[];
+    relevantIndustries: string[];
+  }[];
+  profileSummary?: {
+    totalExperience?: string;
+    currentLevel?: string;
+    primarySkills?: string[];
+    industries?: string[];
+    uniqueValue?: string;
+  };
+  // 後方互換性
+  marketView?: { summary: string; instantValue: string[]; growingDemand: string[]; reproducibleResults: string[] };
 };
 
 // 職務経歴書審査の型定義
@@ -89,6 +180,7 @@ type DocumentReviewResult = {
 };
 
 export type ReportData = {
+  quickDiagnosis?: QuickDiagnosis | null;
   positionAnalysis: PositionAnalysis | null;
   questions: Question[];
   correctionResult: CorrectionResult | null;
@@ -349,6 +441,139 @@ export function downloadReportPdf(data: ReportData) {
   pdf.setFont(7.5, C.light);
   doc.text('このレポートはAIによる分析結果です。面接対策の参考としてご活用ください。', pdf.marginLeft, pdf.y);
 
+  // ═══════════ 00 SELECTION OUTLOOK ═══════════
+  const so = data.quickDiagnosis?.selectionOutlook;
+  if (so) {
+    pdf.newPage();
+    pdf.setFont(10, C.teal);
+    doc.text('00', pdf.marginLeft, pdf.y);
+    pdf.y += 6;
+    
+    pdf.setFont(16, C.black);
+    doc.text('Selection Outlook', pdf.marginLeft, pdf.y);
+    pdf.y += 4;
+    pdf.setFont(9, C.mid);
+    doc.text('選考通過可能性', pdf.marginLeft, pdf.y);
+    pdf.y += 10;
+
+    // グレードと総合スコアボックス
+    const gradeColor = so.grade === 'A' ? C.teal : 
+                       so.grade === 'B' ? C.amber : 
+                       so.grade === 'C' ? [249, 115, 22] as [number, number, number] : 
+                       [239, 68, 68] as [number, number, number];
+    
+    doc.setFillColor(41, 37, 36);
+    doc.rect(pdf.marginLeft, pdf.y, pdf.contentWidth, 30, 'F');
+    
+    // グレード
+    pdf.setFont(36, gradeColor);
+    doc.text(so.grade, pdf.marginLeft + 10, pdf.y + 22);
+    
+    // スコア
+    pdf.setFont(20, C.white);
+    doc.text(`${so.totalScore}`, pdf.marginLeft + 40, pdf.y + 18);
+    pdf.setFont(10, C.light);
+    doc.text('/100', pdf.marginLeft + 60, pdf.y + 18);
+    
+    // 通過率
+    pdf.setFont(9, C.light);
+    doc.text(`書類通過率: ${so.passRateEstimate}`, pdf.marginLeft + 40, pdf.y + 26);
+    
+    // ラベル
+    const gradeLabel = so.grade === 'A' ? '通過可能性:高' : 
+                       so.grade === 'B' ? '通過可能性:中' : 
+                       so.grade === 'C' ? '要対策' : '大幅改善要';
+    doc.setFillColor(...gradeColor);
+    doc.rect(pdf.marginLeft + 120, pdf.y + 10, 40, 10, 'F');
+    pdf.setFont(8, C.white);
+    doc.text(gradeLabel, pdf.marginLeft + 125, pdf.y + 17);
+    
+    pdf.y += 38;
+
+    // 5軸スコア
+    pdf.setFont(10, C.dark);
+    doc.text('評価スコア内訳', pdf.marginLeft, pdf.y);
+    pdf.y += 8;
+
+    const scoreItems = [
+      { key: 'jobFit', label: '求人適合度', max: 35 },
+      { key: 'reproducibility', label: '再現性証明', max: 25 },
+      { key: 'decisionClarity', label: '判断・戦略性', max: 20 },
+      { key: 'quantification', label: '数値化明瞭度', max: 10 },
+      { key: 'marketTrend', label: '市場トレンド', max: 10 },
+    ];
+
+    for (const item of scoreItems) {
+      const scoreData = so.scores[item.key as keyof typeof so.scores];
+      const percentage = (scoreData.score / scoreData.maxScore) * 100;
+      const barColor = percentage >= 70 ? C.teal : percentage >= 50 ? C.amber : [239, 68, 68] as [number, number, number];
+      
+      pdf.checkPageBreak(18);
+      
+      // ラベルとスコア
+      pdf.setFont(9, C.dark);
+      doc.text(item.label, pdf.marginLeft, pdf.y);
+      pdf.setFont(10, barColor);
+      doc.text(`${scoreData.score}/${scoreData.maxScore}`, pdf.marginLeft + 45, pdf.y);
+      
+      // バー
+      const barY = pdf.y + 3;
+      const barWidth = 80;
+      doc.setFillColor(...C.border);
+      doc.rect(pdf.marginLeft + 65, barY - 2, barWidth, 4, 'F');
+      doc.setFillColor(...barColor);
+      doc.rect(pdf.marginLeft + 65, barY - 2, barWidth * (scoreData.score / scoreData.maxScore), 4, 'F');
+      
+      // 根拠
+      pdf.y += 7;
+      pdf.setFont(7.5, C.mid);
+      const evidenceLines = doc.splitTextToSize(scoreData.evidence, pdf.contentWidth - 5);
+      for (const line of evidenceLines.slice(0, 2)) {
+        doc.text(line, pdf.marginLeft + 3, pdf.y);
+        pdf.y += 3.5;
+      }
+      pdf.y += 4;
+    }
+
+    // 致命的なギャップ
+    if (so.criticalGaps?.length > 0) {
+      pdf.y += 4;
+      doc.setFillColor(254, 226, 226);
+      const gapBoxHeight = so.criticalGaps.length * 5 + 12;
+      doc.rect(pdf.marginLeft, pdf.y, pdf.contentWidth, gapBoxHeight, 'F');
+      
+      pdf.setFont(8, [220, 38, 38]);
+      doc.text('⚠️ 致命的なギャップ', pdf.marginLeft + 4, pdf.y + 6);
+      pdf.y += 12;
+      
+      for (const gap of so.criticalGaps) {
+        pdf.setFont(8, [185, 28, 28]);
+        doc.text(`• ${gap}`, pdf.marginLeft + 6, pdf.y);
+        pdf.y += 5;
+      }
+      pdf.y += 4;
+    }
+
+    // 最優先対策
+    if (so.improvementPriorities?.length > 0) {
+      pdf.y += 4;
+      doc.setFillColor(204, 251, 241);
+      const priorityBoxHeight = so.improvementPriorities.length * 5 + 12;
+      doc.rect(pdf.marginLeft, pdf.y, pdf.contentWidth, priorityBoxHeight, 'F');
+      
+      pdf.setFont(8, C.teal);
+      doc.text('📋 最優先で対策すべきこと', pdf.marginLeft + 4, pdf.y + 6);
+      pdf.y += 12;
+      
+      so.improvementPriorities.forEach((priority, i) => {
+        pdf.setFont(8, [15, 118, 110]);
+        doc.text(`${i + 1}. ${priority}`, pdf.marginLeft + 6, pdf.y);
+        pdf.y += 5;
+      });
+      pdf.y += 4;
+    }
+  }
+
   // ═══════════ 01 POSITION ANALYSIS ═══════════
   const pa = data.positionAnalysis;
   if (pa) {
@@ -582,15 +807,127 @@ export function downloadReportPdf(data: ReportData) {
     pdf.spacer(4);
     pdf.hr();
 
+    // 新しい年収推定セクション
+    const se = me.salaryEstimate;
+    if (se) {
+      pdf.sectionLabel('SALARY ESTIMATES');
+      pdf.spacer(4);
+      
+      // 年収レンジボックス
+      doc.setFillColor(41, 37, 36);
+      doc.rect(pdf.marginLeft, pdf.y, pdf.contentWidth, 28, 'F');
+      
+      pdf.setFont(9, C.light);
+      doc.text('想定年収レンジ', pdf.marginLeft + 5, pdf.y + 8);
+      
+      pdf.setFont(18, C.white);
+      doc.text(se.range, pdf.marginLeft + 5, pdf.y + 20);
+      
+      pdf.setFont(9, C.light);
+      doc.text(`中央値推定: ${se.median}万円`, pdf.marginLeft + 100, pdf.y + 20);
+      
+      pdf.y += 35;
+
+      // 算出根拠
+      pdf.setFont(9, C.dark);
+      doc.text('算出根拠', pdf.marginLeft, pdf.y);
+      pdf.y += 6;
+
+      const calc = se.calculation;
+      if (calc) {
+        const adjustmentItems = [
+          { label: '職種カテゴリ', value: `${calc.baseCategory} = ${calc.baseAmount}万円` },
+          { label: '経験年数補正', value: `${calc.adjustments.experienceYears.value} → ${calc.adjustments.experienceYears.adjustment}` },
+          { label: 'マネジメント補正', value: `${calc.adjustments.management.value} → ${calc.adjustments.management.adjustment}` },
+          { label: '成果補正', value: `${calc.adjustments.quantification.value} → ${calc.adjustments.quantification.adjustment}` },
+          { label: '市場補正', value: `${calc.adjustments.marketDemand.value} → ${calc.adjustments.marketDemand.adjustment}` },
+          { label: '英語/外資補正', value: `${calc.adjustments.globalExperience.value} → ${calc.adjustments.globalExperience.adjustment}` },
+          { label: '業界補正', value: `${calc.adjustments.industry.value} → ${calc.adjustments.industry.adjustment}` },
+        ];
+
+        for (const item of adjustmentItems) {
+          pdf.checkPageBreak(6);
+          pdf.setFont(8, C.mid);
+          doc.text(`・${item.label}:`, pdf.marginLeft + 3, pdf.y);
+          pdf.setFont(8, C.dark);
+          doc.text(item.value, pdf.marginLeft + 45, pdf.y);
+          pdf.y += 5;
+        }
+        
+        pdf.y += 2;
+        pdf.setFont(9, C.teal);
+        doc.text(`合計補正: ${calc.totalAdjustment}`, pdf.marginLeft + 3, pdf.y);
+        pdf.y += 8;
+      }
+
+      if (se.marketComment) {
+        pdf.setFont(8, C.mid);
+        const commentLines = doc.splitTextToSize(se.marketComment, pdf.contentWidth - 10);
+        for (const line of commentLines) {
+          doc.text(line, pdf.marginLeft + 3, pdf.y);
+          pdf.y += 4;
+        }
+      }
+      pdf.hr();
+    }
+
+    // 新しいマーケット価値セクション
+    const mval = me.marketValue;
+    if (mval) {
+      pdf.sectionLabel('MARKET VALUE');
+      pdf.spacer(2);
+      if (mval.summary) pdf.body(mval.summary);
+      pdf.spacer(4);
+
+      // 需給レベル
+      const demandColor = mval.demandLevel === 'high' ? C.teal : mval.demandLevel === 'medium' ? C.amber : C.mid;
+      const supplyColor = mval.supplyLevel === 'high' ? [239, 68, 68] as [number, number, number] : mval.supplyLevel === 'medium' ? C.amber : C.teal;
+      
+      pdf.setFont(8, C.mid);
+      doc.text('需要レベル:', pdf.marginLeft, pdf.y);
+      pdf.setFont(9, demandColor);
+      doc.text(mval.demandLevel.toUpperCase(), pdf.marginLeft + 25, pdf.y);
+      
+      pdf.setFont(8, C.mid);
+      doc.text('供給レベル:', pdf.marginLeft + 60, pdf.y);
+      pdf.setFont(9, supplyColor);
+      doc.text(mval.supplyLevel.toUpperCase(), pdf.marginLeft + 85, pdf.y);
+      pdf.y += 8;
+
+      if (mval.instantValue?.length > 0) {
+        pdf.setFont(8, C.mid);
+        doc.text('即戦力として評価される点:', pdf.marginLeft, pdf.y);
+        pdf.y += 5;
+        for (const v of mval.instantValue) {
+          pdf.setFont(8, C.dark);
+          doc.text(`✓ ${v}`, pdf.marginLeft + 5, pdf.y);
+          pdf.y += 4.5;
+        }
+        pdf.y += 3;
+      }
+
+      if (mval.competitivePosition) {
+        pdf.setFont(8, C.mid);
+        doc.text('競争力評価:', pdf.marginLeft, pdf.y);
+        pdf.y += 4;
+        pdf.setFont(8, C.dark);
+        const posLines = doc.splitTextToSize(mval.competitivePosition, pdf.contentWidth - 10);
+        for (const line of posLines) {
+          doc.text(line, pdf.marginLeft + 3, pdf.y);
+          pdf.y += 4;
+        }
+      }
+      pdf.hr();
+    }
+
+    // 旧形式のマーケットビュー（後方互換性）
     const mv = me.marketView;
-    if (mv?.summary) {
+    if (mv?.summary && !mval) {
       pdf.sectionLabel('マーケット概観');
       pdf.spacer(2);
       pdf.body(mv.summary);
       pdf.spacer(6);
-    }
 
-    if (mv) {
       const columns = [
         { label: '即戦力として評価されやすい', items: mv.instantValue || [] },
         { label: '需要が伸びているスキル', items: mv.growingDemand || [] },
@@ -633,6 +970,7 @@ export function downloadReportPdf(data: ReportData) {
       pdf.hr();
     }
 
+    // 強み（新旧両対応）
     const st = me.strengths;
     if (st) {
       pdf.sectionLabel('強み');
@@ -644,13 +982,23 @@ export function downloadReportPdf(data: ReportData) {
       ];
       for (const item of items) {
         if (item.val) {
-          pdf.labeledBody(item.label, item.val);
+          // 新形式（オブジェクト）か旧形式（文字列）かを判定
+          const text = typeof item.val === 'string' ? item.val : (item.val as StrengthItem).assessment;
+          const evidence = typeof item.val === 'object' ? (item.val as StrengthItem).evidence : null;
+          
+          pdf.labeledBody(item.label, text);
+          if (evidence) {
+            pdf.setFont(7.5, C.mid);
+            doc.text(`根拠: ${evidence}`, pdf.marginLeft + 5, pdf.y);
+            pdf.y += 4;
+          }
           pdf.spacer(2);
         }
       }
       pdf.hr();
     }
 
+    // 成長ポイント（新旧両対応）
     const ga = me.growthAreas;
     if (ga) {
       pdf.sectionLabel('成長ポイント');
@@ -662,7 +1010,10 @@ export function downloadReportPdf(data: ReportData) {
       ];
       for (const item of items) {
         if (item.val) {
-          pdf.amberBarBlock(item.label, item.val);
+          // 新形式か旧形式かを判定
+          const text = typeof item.val === 'string' ? item.val : 
+            `現状: ${(item.val as GrowthAreaItem).current}\n改善: ${(item.val as GrowthAreaItem).action}`;
+          pdf.amberBarBlock(item.label, text);
           pdf.spacer(2);
         }
       }
