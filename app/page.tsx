@@ -6,7 +6,38 @@ import {
 } from 'lucide-react';
 import { downloadReportPdf } from '@/lib/generateReportPdf';
 
-type Question = { question: string; answer: string; category?: string; };
+// 強化版 Question型
+type AnswerStructure = {
+  opening: string;
+  body: string;
+  bridge: string;
+};
+
+type Question = {
+  question: string;
+  answer: string;
+  category?: string;
+  // 新しいフィールド
+  difficulty?: 'easy' | 'medium' | 'hard';
+  interviewerIntent?: string;
+  riskBeingChecked?: string;
+  framework?: 'PREP' | 'STAR' | 'PREP+STAR';
+  frameworkReason?: string;
+  answerStructure?: AnswerStructure;
+  usedFromResume?: string[];
+  idealAnswerPoints?: string[];
+  followUpQuestions?: string[];
+  ngPatterns?: string[];
+  answerDuration?: string;
+};
+
+// 採用リスク分析
+type RiskAnalysis = {
+  skillGaps: string[];
+  experienceDepth: string[];
+  fitConcerns: string[];
+  strengths: string[];
+};
 
 // 職務経歴書審査 - 診断結果
 type DiagnosisResult = {
@@ -224,13 +255,9 @@ export default function Home() {
   const [resumeText, setResumeText] = useState('');
   const [jobInfo, setJobInfo] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [riskAnalysis, setRiskAnalysis] = useState<RiskAnalysis | null>(null);
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionError, setQuestionError] = useState('');
-  
-  // 固定値
-  const questionCount = '7';
-  const interviewType = 'balanced';
-  const answerLength = 'medium';
   
   const [userAnswers, setUserAnswers] = useState<{[key: number]: string}>({});
   const [feedbacks, setFeedbacks] = useState<{[key: number]: PracticeFeedback}>({});
@@ -361,6 +388,7 @@ export default function Home() {
     setQuestionLoading(true);
     setQuestionError('');
     setQuestions([]);
+    setRiskAnalysis(null);
     setUserAnswers({});
     setFeedbacks({});
     setExpandedQuestions({});
@@ -370,11 +398,14 @@ export default function Home() {
       const res = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobInfo, resumeText, questionCount, interviewType, answerLength }),
+        body: JSON.stringify({ jobInfo, resumeText, questionCount: 7 }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
       setQuestions(data.questions);
+      if (data.riskAnalysis) {
+        setRiskAnalysis(data.riskAnalysis);
+      }
       setExpandedQuestions({ 0: true });
       setActiveTab('questions');
     } catch (error) {
@@ -1175,22 +1206,86 @@ export default function Home() {
             ) : questionLoading ? (
               <div className="py-16 text-center">
                 <Loader2 className="w-5 h-5 animate-spin text-stone-400 mx-auto mb-3" />
-                <p className="text-sm text-stone-600">想定質問を生成中...</p>
-                <p className="text-xs text-stone-500 mt-1">20〜30秒ほどかかります</p>
+                <p className="text-sm text-stone-600">採用リスクを分析中...</p>
+                <p className="text-xs text-stone-500 mt-1">30〜40秒ほどかかります</p>
               </div>
             ) : (
-              <div className="space-y-0">
-                <div className="flex items-center justify-between mb-6">
-                  <p className="text-sm text-stone-600">{questions.length}件の想定質問</p>
-                  <button
-                    onClick={downloadResults}
-                    className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
-                  >
-                    ダウンロード
-                  </button>
-                </div>
+              <div className="space-y-8">
+                {/* 採用リスク分析セクション */}
+                {riskAnalysis && (
+                  <section className="bg-stone-50 border border-stone-200 p-6">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">RISK ANALYSIS</p>
+                    <p className="text-sm text-stone-600 mb-4">面接官が確認したいポイント</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {riskAnalysis.skillGaps.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-amber-700 mb-2">スキルギャップ</p>
+                          <ul className="space-y-1">
+                            {riskAnalysis.skillGaps.map((gap, i) => (
+                              <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                                <span className="text-amber-500 mt-0.5">!</span>
+                                {gap}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {riskAnalysis.experienceDepth.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-stone-700 mb-2">経験の深さ</p>
+                          <ul className="space-y-1">
+                            {riskAnalysis.experienceDepth.map((exp, i) => (
+                              <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                                <span className="text-stone-400 mt-0.5">?</span>
+                                {exp}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {riskAnalysis.fitConcerns.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-stone-700 mb-2">定着・フィット懸念</p>
+                          <ul className="space-y-1">
+                            {riskAnalysis.fitConcerns.map((concern, i) => (
+                              <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                                <span className="text-stone-400 mt-0.5">△</span>
+                                {concern}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {riskAnalysis.strengths.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-teal-700 mb-2">アピールポイント</p>
+                          <ul className="space-y-1">
+                            {riskAnalysis.strengths.map((strength, i) => (
+                              <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                                <span className="text-teal-500 mt-0.5">✓</span>
+                                {strength}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
 
-                {questions.map((qa, i) => (
+                {/* 質問一覧 */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-stone-600">{questions.length}件の想定質問</p>
+                    <button
+                      onClick={downloadResults}
+                      className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
+                    >
+                      ダウンロード
+                    </button>
+                  </div>
+
+                  {questions.map((qa, i) => (
                   <div key={i}>
                     <div className="border-t border-stone-200">
                     <button
@@ -1201,9 +1296,26 @@ export default function Home() {
                         <span className="text-xs text-stone-400 font-mono mt-0.5">{String(i + 1).padStart(2, '0')}</span>
                         <div className="flex-1">
                           <p className="text-sm text-stone-800 leading-relaxed">{qa.question}</p>
-                          {qa.category && (
-                            <span className="inline-block mt-1 text-xs text-stone-500">{qa.category}</span>
-                          )}
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {qa.category && (
+                              <span className="text-xs text-stone-500">{qa.category}</span>
+                            )}
+                            {qa.difficulty && (
+                              <span className={`text-xs px-1.5 py-0.5 ${
+                                qa.difficulty === 'hard' ? 'bg-red-100 text-red-700' :
+                                qa.difficulty === 'medium' ? 'bg-amber-100 text-amber-700' :
+                                'bg-stone-100 text-stone-600'
+                              }`}>
+                                {qa.difficulty === 'hard' ? '難' : qa.difficulty === 'medium' ? '中' : '易'}
+                              </span>
+                            )}
+                            {qa.framework && (
+                              <span className="text-xs text-teal-600">{qa.framework}</span>
+                            )}
+                            {qa.answerDuration && (
+                              <span className="text-xs text-stone-400">⏱️ {qa.answerDuration}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
@@ -1225,6 +1337,33 @@ export default function Home() {
 
                     {expandedQuestions[i] && (
                       <div className="pb-6 pl-10 space-y-4">
+                        {/* 面接官の意図 */}
+                        {qa.interviewerIntent && (
+                          <div className="bg-amber-50 border-l-2 border-amber-400 p-3">
+                            <p className="text-xs text-amber-800 font-medium mb-1">👤 面接官が確認したいこと</p>
+                            <p className="text-sm text-stone-700">{qa.interviewerIntent}</p>
+                            {qa.riskBeingChecked && (
+                              <p className="text-xs text-stone-500 mt-1">検証リスク: {qa.riskBeingChecked}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 回答のポイント */}
+                        {qa.idealAnswerPoints && qa.idealAnswerPoints.length > 0 && (
+                          <div className="bg-stone-50 p-3">
+                            <p className="text-xs text-stone-600 font-medium mb-2">✅ 回答に含めるべきポイント</p>
+                            <ul className="space-y-1">
+                              {qa.idealAnswerPoints.map((point, j) => (
+                                <li key={j} className="text-xs text-stone-600 flex items-start gap-2">
+                                  <span className="text-teal-500 mt-0.5">•</span>
+                                  {point}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* あなたの回答入力 */}
                         <div>
                           <label className="block text-xs text-stone-500 mb-2">あなたの回答</label>
                           <textarea
@@ -1257,10 +1396,74 @@ export default function Home() {
                           </div>
                         </div>
 
+                        {/* 模範解答（構造化表示） */}
                         {showModelAnswer[i] && (
-                          <div className="border-l-2 border-teal-600 pl-4">
-                            <p className="text-xs text-stone-500 mb-1">回答例</p>
-                            <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{qa.answer}</p>
+                          <div className="space-y-3">
+                            {/* フレームワーク説明 */}
+                            {qa.framework && qa.frameworkReason && (
+                              <div className="text-xs text-stone-500 bg-stone-50 p-2">
+                                <span className="font-medium text-teal-700">{qa.framework}</span> - {qa.frameworkReason}
+                              </div>
+                            )}
+                            
+                            {/* 構造化された回答 */}
+                            {qa.answerStructure && (
+                              <div className="border border-stone-200 divide-y divide-stone-200">
+                                <div className="p-3">
+                                  <p className="text-xs text-teal-600 font-medium mb-1">Opening（結論）</p>
+                                  <p className="text-sm text-stone-700">{qa.answerStructure.opening}</p>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs text-stone-500 font-medium mb-1">
+                                    {qa.framework === 'STAR' ? 'STAR（状況→課題→行動→結果）' : 
+                                     qa.framework === 'PREP' ? 'Reason + Example（理由→具体例）' : 
+                                     'Body（本論）'}
+                                  </p>
+                                  <p className="text-sm text-stone-700">{qa.answerStructure.body}</p>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs text-teal-600 font-medium mb-1">Bridge（御社への接続）</p>
+                                  <p className="text-sm text-stone-700">{qa.answerStructure.bridge}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 完成版回答 */}
+                            <div className="border-l-2 border-teal-600 pl-4">
+                              <p className="text-xs text-stone-500 mb-1">完成版回答</p>
+                              <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{qa.answer}</p>
+                            </div>
+
+                            {/* 使用した経歴 */}
+                            {qa.usedFromResume && qa.usedFromResume.length > 0 && (
+                              <div className="text-xs text-stone-500">
+                                <span className="font-medium">活用した経歴:</span> {qa.usedFromResume.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 深掘り質問 */}
+                        {qa.followUpQuestions && qa.followUpQuestions.length > 0 && showModelAnswer[i] && (
+                          <div className="bg-stone-50 p-3">
+                            <p className="text-xs text-stone-600 font-medium mb-2">🔍 想定される深掘り質問</p>
+                            <ul className="space-y-1">
+                              {qa.followUpQuestions.map((fq, j) => (
+                                <li key={j} className="text-xs text-stone-600">• {fq}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* NGパターン */}
+                        {qa.ngPatterns && qa.ngPatterns.length > 0 && showModelAnswer[i] && (
+                          <div className="bg-red-50 border-l-2 border-red-300 p-3">
+                            <p className="text-xs text-red-700 font-medium mb-2">⚠️ 避けるべき回答パターン</p>
+                            <ul className="space-y-1">
+                              {qa.ngPatterns.map((ng, j) => (
+                                <li key={j} className="text-xs text-red-600">✗ {ng}</li>
+                              ))}
+                            </ul>
                           </div>
                         )}
 
@@ -1341,6 +1544,7 @@ export default function Home() {
                     </button>
                   </section>
                 )}
+                </div>
               </div>
             )}
           </div>
