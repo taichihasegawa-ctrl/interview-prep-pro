@@ -760,16 +760,16 @@ export default function Home() {
       </header>
 
       {/* ナビゲーション */}
-      <nav className="border-b border-stone-200 bg-white sticky top-0 z-40">
+      <nav className="border-b border-stone-200 bg-white sticky top-0 z-40 overflow-x-auto">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="flex gap-8">
+          <div className="flex gap-4 md:gap-8 min-w-max">
             {[
               { id: 'prepare', label: '準備', step: 1 },
-              { id: 'quick', label: 'クイック診断', step: 2 },
-              { id: 'position', label: 'ポジション分析', step: 3 },
-              { id: 'questions', label: '想定質問', step: 4 },
-              { id: 'review', label: '経歴書審査', step: 5 },
-              { id: 'market', label: '市場評価', step: 6 },
+              { id: 'quick', label: '診断', step: 2 },
+              { id: 'position', label: 'ポジション', step: 3 },
+              { id: 'questions', label: '質問', step: 4 },
+              { id: 'review', label: '審査', step: 5 },
+              { id: 'market', label: '市場', step: 6 },
             ].map((tab) => {
               // ステップ制御: 前のステップが完了していないとロック
               const isUnlocked = 
@@ -794,7 +794,7 @@ export default function Home() {
                     }
                   }}
                   disabled={!isUnlocked && !isPro}
-                  className={`py-3 text-sm border-b-2 transition-colors flex items-center gap-1 ${
+                  className={`py-3 text-sm border-b-2 transition-colors flex items-center gap-1 whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-stone-800 text-stone-800 font-medium'
                       : isLocked
@@ -802,10 +802,10 @@ export default function Home() {
                       : 'border-transparent text-stone-500 hover:text-stone-700'
                   }`}
                 >
-                  <span className={`text-xs mr-1 ${isLocked ? 'text-stone-300' : 'text-stone-400'}`}>{tab.step}</span>
+                  <span className={`text-xs ${isLocked ? 'text-stone-300' : 'text-stone-400'}`}>{tab.step}</span>
                   {tab.label}
-                  {isPro && !isPaid && <span className="text-xs text-amber-600 ml-1">PRO</span>}
-                  {isUnlocked && tab.step > 1 && <Check className="w-3 h-3 text-teal-500 ml-1" />}
+                  {isPro && !isPaid && <span className="text-xs text-amber-600 ml-0.5">PRO</span>}
+                  {isUnlocked && tab.step > 1 && <Check className="w-3 h-3 text-teal-500 ml-0.5" />}
                 </button>
               );
             })}
@@ -1972,15 +1972,27 @@ export default function Home() {
                   </section>
                 )}
 
-                {/* 再審査ボタン */}
-                <section className="border-t border-stone-200 pt-8 flex gap-4">
+                {/* 経歴書編集・再審査セクション */}
+                <section className="border-t border-stone-200 pt-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">EDIT & RE-REVIEW</p>
+                  <p className="text-sm text-stone-600 mb-4">改善案を参考に経歴書を修正し、再審査できます</p>
+                  
+                  <div className="mb-4">
+                    <textarea
+                      value={resumeText}
+                      onChange={(e) => setResumeText(e.target.value)}
+                      className="w-full h-64 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
+                      placeholder="職務経歴を入力..."
+                    />
+                  </div>
+                  
                   <button
                     onClick={() => {
                       setDocumentReview(null);
                       handleDocumentReview();
                     }}
-                    disabled={reviewLoading}
-                    className="border border-stone-300 text-stone-600 px-6 py-3 text-sm hover:bg-stone-50 transition-colors disabled:opacity-40 inline-flex items-center gap-2"
+                    disabled={reviewLoading || !resumeText.trim()}
+                    className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 inline-flex items-center gap-2"
                   >
                     {reviewLoading ? (
                       <>
@@ -1988,7 +2000,10 @@ export default function Home() {
                         再審査中...
                       </>
                     ) : (
-                      '再審査する'
+                      <>
+                        修正した経歴書を再審査
+                        <ArrowRight className="w-4 h-4" />
+                      </>
                     )}
                   </button>
                 </section>
