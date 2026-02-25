@@ -1,21 +1,27 @@
-import { ClerkProvider } from '@clerk/nextjs';
-import './globals.css';
+// app/layout.tsx
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
-export const metadata = {
-  title: '面接対策プロ - AI面接コーチング',
-  description: 'AIが履歴書分析から面接練習までサポート',
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "面接対策 | Interview Preparation",
+  description: "AIが面接対策をサポート。求人票と職務経歴書を分析し、想定質問と模範解答を生成します。",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <ClerkProvider>
-      <html lang="ja">
-        <body>{children}</body>
-      </html>
-    </ClerkProvider>
+    <html lang="ja">
+      <body className={inter.className}>
+        <GoogleAnalytics />
+        {children}
+      </body>
+    </html>
   );
 }
