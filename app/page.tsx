@@ -1918,21 +1918,11 @@ export default function Home() {
                   </section>
                 )}
 
-                {/* 再構築版 */}
-                <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-3">RECONSTRUCTED VERSION</p>
-                  <p className="text-sm text-stone-600 mb-4">採用側視点で再構築した職務経歴書</p>
-                  <div className="bg-stone-50 border border-stone-200 p-6">
-                    <pre className="text-sm text-stone-800 whitespace-pre-wrap font-sans leading-relaxed">
-                      {documentReview.reconstruction.reconstructedVersion}
-                    </pre>
-                  </div>
-                </section>
-
                 {/* 行レベルの修正 */}
-                {documentReview.reconstruction.lineLevelRewrites.length > 0 && (
+                {documentReview.reconstruction?.lineLevelRewrites && documentReview.reconstruction.lineLevelRewrites.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-4">LINE-BY-LINE CHANGES</p>
+                    <p className="text-sm text-stone-600 mb-4">改善のヒント（参考情報としてご活用ください）</p>
                     <div className="space-y-4">
                       {documentReview.reconstruction.lineLevelRewrites.map((rewrite, i) => (
                         <div key={i} className="border border-stone-200">
@@ -1956,7 +1946,7 @@ export default function Home() {
                 )}
 
                 {/* 確認が必要な質問 */}
-                {documentReview.reconstruction.clarificationNeeded && documentReview.reconstruction.clarificationNeeded.length > 0 && (
+                {documentReview.reconstruction?.clarificationNeeded && documentReview.reconstruction.clarificationNeeded.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-3">CLARIFICATION NEEDED</p>
                     <p className="text-sm text-stone-600 mb-4">より精度の高い経歴書にするため、以下の情報があると効果的です</p>
@@ -1971,42 +1961,6 @@ export default function Home() {
                     </div>
                   </section>
                 )}
-
-                {/* 経歴書編集・再審査セクション */}
-                <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-4">EDIT & RE-REVIEW</p>
-                  <p className="text-sm text-stone-600 mb-4">改善案を参考に経歴書を修正し、再審査できます</p>
-                  
-                  <div className="mb-4">
-                    <textarea
-                      value={resumeText}
-                      onChange={(e) => setResumeText(e.target.value)}
-                      className="w-full h-64 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
-                      placeholder="職務経歴を入力..."
-                    />
-                  </div>
-                  
-                  <button
-                    onClick={() => {
-                      setDocumentReview(null);
-                      handleDocumentReview();
-                    }}
-                    disabled={reviewLoading || !resumeText.trim()}
-                    className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors disabled:opacity-40 inline-flex items-center gap-2"
-                  >
-                    {reviewLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        再審査中...
-                      </>
-                    ) : (
-                      <>
-                        修正した経歴書を再審査
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </section>
 
                 {/* 市場評価へ進む */}
                 <section className="border-t border-stone-200 pt-8 mt-8">
