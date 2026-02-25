@@ -1223,6 +1223,37 @@ export function downloadReportPdf(data: ReportData) {
     }
   }
 
+  // ─── 免責事項ページ ───
+  pdf.newPage();
+  pdf.setFont(10, C.mid);
+  doc.text('DISCLAIMER', pdf.marginLeft, pdf.y);
+  pdf.y += 4;
+  pdf.setFont(12, C.black);
+  doc.text('免責事項', pdf.marginLeft, pdf.y);
+  pdf.y += 10;
+  pdf.hr();
+
+  const disclaimerItems = [
+    '本レポートが提供する分析結果、想定質問、模範解答、職務経歴書の改善提案その他一切の情報は、AIによる参考情報に過ぎず、転職活動の成功、選考通過、内定獲得などを一切保証するものではありません。',
+    '本レポートが提供する改善提案（職務経歴書の修正案を含む）を参考とする場合、必ずご自身で内容の正確性・事実関係・表現の適切性を最終確認し、責任を持って修正・利用してください。本レポートは、改善提案の内容についてその正確性・完全性・有用性を一切保証しません。',
+    '本レポートの分析結果・改善提案に基づいて行った判断・行動（職務経歴書の提出、面接での回答等）により生じた一切の損害（選考不合格、機会損失、精神的損害等を含む）について、InterviewCraftは理由のいかんを問わず一切の責任を負いません。',
+  ];
+
+  for (let i = 0; i < disclaimerItems.length; i++) {
+    pdf.checkPageBreak(25);
+    pdf.setFont(8, C.dark);
+    const lines = doc.splitTextToSize(`${i + 1}. ${disclaimerItems[i]}`, pdf.contentWidth - 5);
+    for (const line of lines) {
+      doc.text(line, pdf.marginLeft, pdf.y);
+      pdf.y += 4.5;
+    }
+    pdf.y += 4;
+  }
+
+  pdf.y += 10;
+  pdf.setFont(7, C.light);
+  doc.text('本レポートは InterviewCraft (https://www.interviewcraft.jp) により生成されました。', pdf.marginLeft, pdf.y);
+
   // ─── ページ番号追加 & ダウンロード ───
   pdf.addPageNumbers();
   
