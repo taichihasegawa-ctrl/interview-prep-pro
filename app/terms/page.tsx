@@ -34,8 +34,9 @@ export default function Terms() {
           <section className="mb-8">
             <h2 className="text-lg font-medium text-stone-800 mb-3">第3条（免責事項）</h2>
             <ul className="text-sm text-stone-700 space-y-3 list-decimal list-inside">
-              <li>当サービスが提供する分析結果は、AIによる参考情報であり、転職活動の成功を保証するものではありません。</li>
-              <li>当サービスの分析結果に基づいて行った判断・行動により生じた損害について、当サービスは一切の責任を負いません。</li>
+              <li>当サービスが提供する分析結果、想定質問、模範解答、職務経歴書の改善提案その他一切の情報は、AIによる参考情報に過ぎず、転職活動の成功、選考通過、内定獲得などを一切保証するものではありません。</li>
+              <li>ユーザーは、当サービスが提供する改善提案（職務経歴書の修正案を含む）を参考とする場合、必ずご自身で内容の正確性・事実関係・表現の適切性を最終確認し、責任を持って修正・利用するものとします。当サービスは、改善提案の内容についてその正確性・完全性・有用性を一切保証しません。</li>
+              <li>当サービスの分析結果・改善提案に基づいて行った判断・行動（職務経歴書の提出、面接での回答等）により生じた一切の損害（選考不合格、機会損失、精神的損害等を含む）について、当サービスは理由のいかんを問わず一切の責任を負いません。</li>
               <li>当サービスは、予告なくサービス内容の変更、中断、終了を行う場合があります。</li>
               <li>システム障害、メンテナンス等によりサービスを一時的に利用できない場合があります。</li>
             </ul>
@@ -105,6 +106,14 @@ export default function Terms() {
 
       <footer className="border-t border-stone-200 mt-16">
         <div className="max-w-3xl mx-auto px-6 py-6">
+          <div className="text-center mb-4">
+            <a 
+              href="/" 
+              className="inline-flex items-center gap-2 text-sm text-stone-600 hover:text-stone-800 border border-stone-300 px-4 py-2 hover:bg-stone-100 transition-colors"
+            >
+              ← トップページへ戻る
+            </a>
+          </div>
           <p className="text-xs text-stone-400 text-center">
             © 2025 InterviewCraft
           </p>
