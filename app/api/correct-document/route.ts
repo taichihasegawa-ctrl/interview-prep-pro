@@ -1,42 +1,120 @@
 // app/api/correct-document/route.ts
-// 職務経歴書審査API - 2段階生成（診断→再構築）
+// 職務経歴書審査API - 分割処理対応版
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic();
 
-// 入力文字数の上限
-const MAX_DOCUMENT_LENGTH = 8000;
-const MAX_JOB_INFO_LENGTH = 2000;
+// 1チャンクあたりの目安文字数
+const CHUNK_SIZE = 4000;
 
 // JSONを安全にパースする関数
 function safeParseJSON(text: string, stageName: string): object {
   // コードブロックを除去
-  let cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   
   // JSON部分を抽出
   const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     console.error(`${stageName}: No JSON found in response`);
     console.error(`Response text: ${text.substring(0, 500)}...`);
-    throw new Error(`${stageName}の解析に失敗しました。入力を短くしてお試しください。`);
+    throw new Error(`${stageName}の解析に失敗しました`);
   }
 
   try {
     return JSON.parse(jsonMatch[0]);
   } catch (parseError) {
     console.error(`${stageName}: JSON parse error`, parseError);
-    console.error(`Attempted to parse: ${jsonMatch[0].substring(0, 500)}...`);
-    throw new Error(`${stageName}の解析に失敗しました。入力を短くしてお試しください。`);
+    throw new Error(`${stageName}の解析に失敗しました`);
   }
 }
 
-// Stage1: 審査診断
-async function runDiagnosis(documentText: string, jobInfo?: string) {
+// 職歴を分割する関数
+function splitDocument(documentText: string): string[] {
+  // 文字数がCHUNK_SIZE以下ならそのまま返す
+  if (documentText.length <= CHUNK_SIZE) {
+    return [documentText];
+  }
+
+  const chunks: string[] = [];
+  
+  // 職歴の区切りパターン（会社名、期間など）
+  const splitPatterns = [
+    /\n(?=【[^】]+】)/g,           // 【会社名】パターン
+    /\n(?=■[^\n]+)/g,             // ■会社名 パターン
+    /\n(?=\d{4}年[^\n]*(?:株式会社|有限会社|合同会社))/g,  // 年号+会社名
+    /\n(?=(?:株式会社|有限会社|合同会社)[^\n]+)/g,        // 会社名から始まる
+    /\n(?=\d{4}[年\/\-])/g,       // 年号で始まる行
+    /\n{2,}/g,                     // 空行で区切り
+  ];
+
+  let sections: string[] = [documentText];
+  
+  // パターンを順番に試して分割
+  for (const pattern of splitPatterns) {
+    if (sections.some(s => s.length > CHUNK_SIZE)) {
+      const newSections: string[] = [];
+      for (const section of sections) {
+        if (section.length > CHUNK_SIZE) {
+          const parts = section.split(pattern).filter(p => p.trim());
+          newSections.push(...parts);
+        } else {
+          newSections.push(section);
+        }
+      }
+      sections = newSections;
+    }
+  }
+
+  // まだ大きいセクションがあれば、文字数で強制分割
+  const finalChunks: string[] = [];
+  for (const section of sections) {
+    if (section.length <= CHUNK_SIZE) {
+      finalChunks.push(section);
+    } else {
+      // 文字数で分割（文の途中で切らないように調整）
+      let remaining = section;
+      while (remaining.length > 0) {
+        if (remaining.length <= CHUNK_SIZE) {
+          finalChunks.push(remaining);
+          break;
+        }
+        // 句点か改行で区切れる位置を探す
+        let splitPos = CHUNK_SIZE;
+        const searchArea = remaining.substring(CHUNK_SIZE - 500, CHUNK_SIZE);
+        const lastPeriod = searchArea.lastIndexOf('。');
+        const lastNewline = searchArea.lastIndexOf('\n');
+        const bestSplit = Math.max(lastPeriod, lastNewline);
+        if (bestSplit > 0) {
+          splitPos = CHUNK_SIZE - 500 + bestSplit + 1;
+        }
+        finalChunks.push(remaining.substring(0, splitPos));
+        remaining = remaining.substring(splitPos);
+      }
+    }
+  }
+
+  // 小さすぎるチャンクは前のチャンクに結合
+  const mergedChunks: string[] = [];
+  for (const chunk of finalChunks) {
+    if (mergedChunks.length > 0 && chunk.length < 500) {
+      mergedChunks[mergedChunks.length - 1] += '\n' + chunk;
+    } else {
+      mergedChunks.push(chunk);
+    }
+  }
+
+  return mergedChunks.length > 0 ? mergedChunks : [documentText];
+}
+
+// 単一チャンクの診断
+async function runDiagnosisForChunk(documentText: string, chunkIndex: number, totalChunks: number, jobInfo?: string) {
+  const chunkInfo = totalChunks > 1 ? `（パート${chunkIndex + 1}/${totalChunks}）` : '';
+  
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000, // 3000から増加
+    max_tokens: 4000,
     messages: [
       {
         role: 'user',
@@ -65,7 +143,7 @@ async function runDiagnosis(documentText: string, jobInfo?: string) {
 
 ---
 
-以下は職務経歴書です。
+以下は職務経歴書${chunkInfo}です。
 添削ではなく、採用側の審査ロジックで診断してください。
 
 【重要制約】
@@ -75,52 +153,32 @@ async function runDiagnosis(documentText: string, jobInfo?: string) {
 - 出力はJSONのみ（説明文は絶対に付けない）
 - criticalIssuesは最大3件まで
 
-# 職務経歴書
+# 職務経歴書${chunkInfo}
 ${documentText}
 
 ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
 
 # 出力JSONスキーマ
-以下のJSON形式のみを返してください。説明文は不要です。
-
 {
   "diagnosis": {
-    "overallAssessment": "<この経歴書を見た採用担当者の率直な印象を1-2文で>",
-    "riskPoints": ["<採用側が懸念するリスク1>", "<リスク2>", "<リスク3>"]
+    "overallAssessment": "<この部分を見た採用担当者の印象を1-2文で>",
+    "riskPoints": ["<リスク1>", "<リスク2>", "<リスク3>"]
   },
   "scorecard": {
-    "scopeClarity": {
-      "score": <0-5の整数>,
-      "evidence": "<スコアの根拠となる引用または説明>"
-    },
-    "kpiVisibility": {
-      "score": <0-5の整数>,
-      "evidence": "<スコアの根拠>"
-    },
-    "causality": {
-      "score": <0-5の整数>,
-      "evidence": "<行動と成果の因果関係についての評価根拠>"
-    },
-    "reproducibility": {
-      "score": <0-5の整数>,
-      "evidence": "<別環境での再現可能性の評価根拠>"
-    },
-    "decisionEvidence": {
-      "score": <0-5の整数>,
-      "evidence": "<判断・意思決定の痕跡についての評価根拠>"
-    },
-    "collaborationEvidence": {
-      "score": <0-5の整数>,
-      "evidence": "<協業・調整の痕跡についての評価根拠>"
-    }
+    "scopeClarity": { "score": <0-5>, "evidence": "<根拠>" },
+    "kpiVisibility": { "score": <0-5>, "evidence": "<根拠>" },
+    "causality": { "score": <0-5>, "evidence": "<根拠>" },
+    "reproducibility": { "score": <0-5>, "evidence": "<根拠>" },
+    "decisionEvidence": { "score": <0-5>, "evidence": "<根拠>" },
+    "collaborationEvidence": { "score": <0-5>, "evidence": "<根拠>" }
   },
   "criticalIssues": [
     {
-      "issue": "<問題点の端的な名前>",
-      "severity": "<critical | major | minor>",
-      "quotedText": "<問題のある原文の引用（短く）>",
-      "whyCritical": "<なぜ採用側にとって問題なのか>",
-      "fixDirection": "<改善の方向性>"
+      "issue": "<問題点>",
+      "severity": "<critical|major|minor>",
+      "quotedText": "<原文引用>",
+      "whyCritical": "<理由>",
+      "fixDirection": "<改善方向>"
     }
   ]
 }`
@@ -129,14 +187,67 @@ ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
   });
 
   const text = response.content[0].type === 'text' ? response.content[0].text : '';
-  return safeParseJSON(text, '診断結果');
+  return safeParseJSON(text, `診断結果（パート${chunkIndex + 1}）`);
 }
 
-// Stage2: 再構築
+// 診断結果を統合
+function mergeDiagnosisResults(results: object[]): object {
+  if (results.length === 1) {
+    return results[0];
+  }
+
+  // 各結果をキャスト
+  const typedResults = results as Array<{
+    diagnosis: { overallAssessment: string; riskPoints: string[] };
+    scorecard: Record<string, { score: number; evidence: string }>;
+    criticalIssues: Array<{ issue: string; severity: string; quotedText: string; whyCritical: string; fixDirection: string }>;
+  }>;
+
+  // 全体評価を統合
+  const overallAssessments = typedResults.map(r => r.diagnosis?.overallAssessment).filter(Boolean);
+  const allRiskPoints = typedResults.flatMap(r => r.diagnosis?.riskPoints || []);
+  
+  // スコアを平均化
+  const scoreFields = ['scopeClarity', 'kpiVisibility', 'causality', 'reproducibility', 'decisionEvidence', 'collaborationEvidence'];
+  const mergedScorecard: Record<string, { score: number; evidence: string }> = {};
+  
+  for (const field of scoreFields) {
+    const scores = typedResults.map(r => r.scorecard?.[field]?.score || 0);
+    const evidences = typedResults.map(r => r.scorecard?.[field]?.evidence).filter(Boolean);
+    mergedScorecard[field] = {
+      score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+      evidence: evidences.join(' / ')
+    };
+  }
+
+  // 重要な問題を統合（severity順にソートして上位を取得）
+  const allIssues = typedResults.flatMap(r => r.criticalIssues || []);
+  const severityOrder: Record<string, number> = { critical: 0, major: 1, minor: 2 };
+  const sortedIssues = allIssues.sort((a, b) => 
+    (severityOrder[a.severity] || 2) - (severityOrder[b.severity] || 2)
+  );
+  const topIssues = sortedIssues.slice(0, 5);
+
+  return {
+    diagnosis: {
+      overallAssessment: overallAssessments.join(' '),
+      riskPoints: [...new Set(allRiskPoints)].slice(0, 5)
+    },
+    scorecard: mergedScorecard,
+    criticalIssues: topIssues
+  };
+}
+
+// 再構築（統合された診断結果を使用）
 async function runReconstruction(documentText: string, diagnosisResult: object, jobInfo?: string) {
+  // 長い場合は要約してから再構築
+  const truncatedDoc = documentText.length > 6000 
+    ? documentText.substring(0, 6000) + '\n\n（以下省略）'
+    : documentText;
+
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 6000, // 4000から増加
+    max_tokens: 6000,
     messages: [
       {
         role: 'user',
@@ -158,36 +269,22 @@ async function runReconstruction(documentText: string, diagnosisResult: object, 
 - lineLevelRewritesは最大5件まで
 - clarificationNeededは最大3件まで
 
----
-
-以下の診断結果を元に、職務経歴書を再構築してください。
-
 # 診断結果
 ${JSON.stringify(diagnosisResult, null, 2)}
 
 # 元の文章
-${documentText}
+${truncatedDoc}
 
 ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
 
 # 出力JSON
-以下のJSON形式のみを返してください。説明文は不要です。
-
 {
-  "reconstructedVersion": "<再構築した職務経歴書の全文。改行は\\nで表現>",
+  "reconstructedVersion": "<再構築した職務経歴書。改行は\\nで表現>",
   "lineLevelRewrites": [
-    {
-      "before": "<修正前の原文（短く）>",
-      "after": "<修正後の文>",
-      "why": "<なぜこの修正が必要か>"
-    }
+    { "before": "<修正前>", "after": "<修正後>", "why": "<理由>" }
   ],
   "clarificationNeeded": [
-    {
-      "question": "<ユーザーに確認したい質問>",
-      "why": "<なぜこの情報が必要か>",
-      "placeholder": "<回答の例>"
-    }
+    { "question": "<質問>", "why": "<理由>", "placeholder": "<例>" }
   ]
 }`
       }
@@ -209,58 +306,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 入力文字数チェック
-    if (documentText.length > MAX_DOCUMENT_LENGTH) {
-      return NextResponse.json(
-        { error: `職務経歴書が長すぎます。${MAX_DOCUMENT_LENGTH}文字以内に短縮してください。（現在: ${documentText.length}文字）` },
-        { status: 400 }
-      );
+    // 職歴を分割
+    const chunks = splitDocument(documentText);
+    console.log(`Document split into ${chunks.length} chunks`);
+
+    // 各チャンクを診断
+    const diagnosisResults: object[] = [];
+    for (let i = 0; i < chunks.length; i++) {
+      console.log(`Stage1: Running diagnosis for chunk ${i + 1}/${chunks.length}...`);
+      const result = await runDiagnosisForChunk(chunks[i], i, chunks.length, jobInfo);
+      diagnosisResults.push(result);
     }
 
-    if (jobInfo && jobInfo.length > MAX_JOB_INFO_LENGTH) {
-      return NextResponse.json(
-        { error: `志望先情報が長すぎます。${MAX_JOB_INFO_LENGTH}文字以内に短縮してください。` },
-        { status: 400 }
-      );
-    }
+    // 診断結果を統合
+    const mergedDiagnosis = mergeDiagnosisResults(diagnosisResults);
+    console.log('Diagnosis results merged');
 
-    // Stage1: 診断
-    console.log('Stage1: Running diagnosis...');
-    const diagnosisResult = await runDiagnosis(documentText, jobInfo);
-
-    // Stage2: 再構築
+    // 再構築
     console.log('Stage2: Running reconstruction...');
-    const reconstructionResult = await runReconstruction(documentText, diagnosisResult, jobInfo);
+    const reconstructionResult = await runReconstruction(documentText, mergedDiagnosis, jobInfo);
 
-    // スコアを安全に計算
+    // スコアを計算
     let totalScore = 0;
-    if (diagnosisResult && typeof diagnosisResult === 'object' && 'scorecard' in diagnosisResult) {
-      const scorecard = (diagnosisResult as { scorecard: Record<string, { score: number }> }).scorecard;
+    if (mergedDiagnosis && typeof mergedDiagnosis === 'object' && 'scorecard' in mergedDiagnosis) {
+      const scorecard = (mergedDiagnosis as { scorecard: Record<string, { score: number }> }).scorecard;
       totalScore = Object.values(scorecard).reduce(
         (sum: number, item) => sum + (item?.score || 0), 0
       );
     }
 
-    // 統合結果を返す
     return NextResponse.json({
-      diagnosis: diagnosisResult,
+      diagnosis: mergedDiagnosis,
       reconstruction: reconstructionResult,
       totalScore,
-      maxScore: 30
+      maxScore: 30,
+      chunksProcessed: chunks.length
     });
 
   } catch (error) {
     console.error('Document review error:', error);
     
     let errorMessage = 'エラーが発生しました。もう一度お試しください。';
-    
     if (error instanceof Error) {
       errorMessage = error.message;
-      
-      // APIエラーの場合の追加メッセージ
-      if (error.message.includes('解析に失敗')) {
-        errorMessage += ' 職務経歴書を短くするか、複数回に分けて入力してください。';
-      }
     }
     
     return NextResponse.json(
