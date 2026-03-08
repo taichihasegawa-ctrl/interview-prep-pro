@@ -6,11 +6,37 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic();
 
+// 入力文字数の上限
+const MAX_DOCUMENT_LENGTH = 8000;
+const MAX_JOB_INFO_LENGTH = 2000;
+
+// JSONを安全にパースする関数
+function safeParseJSON(text: string, stageName: string): object {
+  // コードブロックを除去
+  let cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  
+  // JSON部分を抽出
+  const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    console.error(`${stageName}: No JSON found in response`);
+    console.error(`Response text: ${text.substring(0, 500)}...`);
+    throw new Error(`${stageName}の解析に失敗しました。入力を短くしてお試しください。`);
+  }
+
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (parseError) {
+    console.error(`${stageName}: JSON parse error`, parseError);
+    console.error(`Attempted to parse: ${jsonMatch[0].substring(0, 500)}...`);
+    throw new Error(`${stageName}の解析に失敗しました。入力を短くしてお試しください。`);
+  }
+}
+
 // Stage1: 審査診断
 async function runDiagnosis(documentText: string, jobInfo?: string) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 3000,
+    max_tokens: 4000, // 3000から増加
     messages: [
       {
         role: 'user',
@@ -46,7 +72,8 @@ async function runDiagnosis(documentText: string, jobInfo?: string) {
 - 転職を勧める表現は禁止
 - 合否を示唆する確率表現は禁止
 - 一般論は禁止
-- 出力はJSONのみ
+- 出力はJSONのみ（説明文は絶対に付けない）
+- criticalIssuesは最大3件まで
 
 # 職務経歴書
 ${documentText}
@@ -91,7 +118,7 @@ ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
     {
       "issue": "<問題点の端的な名前>",
       "severity": "<critical | major | minor>",
-      "quotedText": "<問題のある原文の引用>",
+      "quotedText": "<問題のある原文の引用（短く）>",
       "whyCritical": "<なぜ採用側にとって問題なのか>",
       "fixDirection": "<改善の方向性>"
     }
@@ -102,18 +129,14 @@ ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
   });
 
   const text = response.content[0].type === 'text' ? response.content[0].text : '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('診断結果の解析に失敗しました');
-  }
-  return JSON.parse(jsonMatch[0]);
+  return safeParseJSON(text, '診断結果');
 }
 
 // Stage2: 再構築
 async function runReconstruction(documentText: string, diagnosisResult: object, jobInfo?: string) {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
+    max_tokens: 6000, // 4000から増加
     messages: [
       {
         role: 'user',
@@ -129,6 +152,11 @@ async function runReconstruction(documentText: string, diagnosisResult: object, 
 ただし、事実を捏造してはいけない。
 元の文章から読み取れる範囲で最大限具体化する。
 不明な情報は「〇〇（具体的な数値を記載）」のようにプレースホルダーで示す。
+
+【重要制約】
+- 出力はJSONのみ（説明文は絶対に付けない）
+- lineLevelRewritesは最大5件まで
+- clarificationNeededは最大3件まで
 
 ---
 
@@ -149,9 +177,9 @@ ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
   "reconstructedVersion": "<再構築した職務経歴書の全文。改行は\\nで表現>",
   "lineLevelRewrites": [
     {
-      "before": "<修正前の原文>",
+      "before": "<修正前の原文（短く）>",
       "after": "<修正後の文>",
-      "why": "<なぜこの修正が必要か、採用側視点で>"
+      "why": "<なぜこの修正が必要か>"
     }
   ],
   "clarificationNeeded": [
@@ -167,11 +195,7 @@ ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
   });
 
   const text = response.content[0].type === 'text' ? response.content[0].text : '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('再構築結果の解析に失敗しました');
-  }
-  return JSON.parse(jsonMatch[0]);
+  return safeParseJSON(text, '再構築結果');
 }
 
 export async function POST(req: NextRequest) {
@@ -185,6 +209,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 入力文字数チェック
+    if (documentText.length > MAX_DOCUMENT_LENGTH) {
+      return NextResponse.json(
+        { error: `職務経歴書が長すぎます。${MAX_DOCUMENT_LENGTH}文字以内に短縮してください。（現在: ${documentText.length}文字）` },
+        { status: 400 }
+      );
+    }
+
+    if (jobInfo && jobInfo.length > MAX_JOB_INFO_LENGTH) {
+      return NextResponse.json(
+        { error: `志望先情報が長すぎます。${MAX_JOB_INFO_LENGTH}文字以内に短縮してください。` },
+        { status: 400 }
+      );
+    }
+
     // Stage1: 診断
     console.log('Stage1: Running diagnosis...');
     const diagnosisResult = await runDiagnosis(documentText, jobInfo);
@@ -193,23 +232,36 @@ export async function POST(req: NextRequest) {
     console.log('Stage2: Running reconstruction...');
     const reconstructionResult = await runReconstruction(documentText, diagnosisResult, jobInfo);
 
+    // スコアを安全に計算
+    let totalScore = 0;
+    if (diagnosisResult && typeof diagnosisResult === 'object' && 'scorecard' in diagnosisResult) {
+      const scorecard = (diagnosisResult as { scorecard: Record<string, { score: number }> }).scorecard;
+      totalScore = Object.values(scorecard).reduce(
+        (sum: number, item) => sum + (item?.score || 0), 0
+      );
+    }
+
     // 統合結果を返す
     return NextResponse.json({
       diagnosis: diagnosisResult,
       reconstruction: reconstructionResult,
-      // スコア合計を計算
-      totalScore: Object.values(diagnosisResult.scorecard).reduce(
-        (sum: number, item: { score: number }) => sum + item.score, 0
-      ),
+      totalScore,
       maxScore: 30
     });
 
   } catch (error) {
     console.error('Document review error:', error);
     
-    const errorMessage = error instanceof Error 
-      ? error.message 
-      : 'エラーが発生しました。もう一度お試しください。';
+    let errorMessage = 'エラーが発生しました。もう一度お試しください。';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // APIエラーの場合の追加メッセージ
+      if (error.message.includes('解析に失敗')) {
+        errorMessage += ' 職務経歴書を短くするか、複数回に分けて入力してください。';
+      }
+    }
     
     return NextResponse.json(
       { error: errorMessage },
