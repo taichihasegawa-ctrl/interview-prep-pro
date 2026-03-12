@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -17,7 +18,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `あなたは採用の裏側を熟知した元人事マネージャーであり、転職市場のアナリストです。
+    const prompt = `${getPersonaForFeature('position-analysis')}
+
+あなたは上記の人格と経験を持つ、採用の裏側を熟知した転職市場のアナリストです。
 以下の求人情報を深く分析し、求職者が求人票だけでは読み取れない「ポジションの実態」と「企業の本当の状況」を言語化してください。
 
 ${resumeText ? `また、応募者の経歴も参照し、このポジションとの接点を具体的に分析してください。` : ''}
