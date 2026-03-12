@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Loader2, ChevronDown, ChevronUp, ExternalLink, ArrowRight, Check, Download
 } from 'lucide-react';
@@ -385,7 +385,67 @@ export default function Home() {
     }
   });
 
-  // 有料タブへのアクセス制御
+  // ===== localStorage 保存・復元 =====
+  const STORAGE_KEY = 'interview-prep-pro-data';
+
+  // 結果をlocalStorageに保存
+  const saveToStorage = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const data = {
+        resumeText,
+        jobInfo,
+        quickDiagnosis,
+        positionAnalysis,
+        questions,
+        riskAnalysis,
+        documentReview,
+        marketEvaluation,
+        isPaid,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('Failed to save to localStorage:', e);
+    }
+  }, [resumeText, jobInfo, quickDiagnosis, positionAnalysis, questions, riskAnalysis, documentReview, marketEvaluation, isPaid]);
+
+  // 結果が更新されたらlocalStorageに保存
+  useEffect(() => {
+    if (resumeText || quickDiagnosis || positionAnalysis || questions.length > 0 || documentReview || marketEvaluation) {
+      saveToStorage();
+    }
+  }, [resumeText, jobInfo, quickDiagnosis, positionAnalysis, questions, documentReview, marketEvaluation, isPaid, saveToStorage]);
+
+  // 初回ロード時にlocalStorageから復元
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const data = JSON.parse(saved);
+      // 24時間以内のデータのみ復元
+      const savedAt = new Date(data.savedAt);
+      const hoursSince = (Date.now() - savedAt.getTime()) / (1000 * 60 * 60);
+      if (hoursSince > 24) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
+      if (data.resumeText) setResumeText(data.resumeText);
+      if (data.jobInfo) setJobInfo(data.jobInfo);
+      if (data.quickDiagnosis) setQuickDiagnosis(data.quickDiagnosis);
+      if (data.positionAnalysis) setPositionAnalysis(data.positionAnalysis);
+      if (data.questions) setQuestions(data.questions);
+      if (data.riskAnalysis) setRiskAnalysis(data.riskAnalysis);
+      if (data.documentReview) setDocumentReview(data.documentReview);
+      if (data.marketEvaluation) setMarketEvaluation(data.marketEvaluation);
+      if (data.isPaid) setIsPaid(data.isPaid);
+    } catch (e) {
+      console.warn('Failed to restore from localStorage:', e);
+    }
+  }, []);
+
+    // 有料タブへのアクセス制御
   const handlePaidTabAccess = (tabId: string) => {
     if (isPaid || tabId === 'prepare' || tabId === 'quick') {
       setActiveTab(tabId);
@@ -756,6 +816,10 @@ export default function Home() {
             </div>
             <p className="text-xs text-stone-400">ver 1.0</p>
           </div>
+          <div className="mt-2 flex items-center gap-2 text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded px-3 py-1.5">
+            <span className="text-stone-400">&#9670;</span>
+            <span>元GAFA面接官の判断ロジックで診断 — 面接官1,000人分の選考基準を搭載</span>
+          </div>
         </div>
       </header>
 
@@ -783,6 +847,20 @@ export default function Home() {
               const isPro = tab.step >= 3;
               const isLocked = !isUnlocked || (isPro && !isPaid);
 
+              // ロック理由のツールチップ
+              const lockReason = isLocked
+                ? isPro && !isPaid
+                  ? 'PRO機能（¥1,500で全機能解放）'
+                  : !isUnlocked
+                    ? tab.step === 2 ? '職務経歴と求人情報を入力すると解放'
+                    : tab.step === 3 ? 'クイック診断を完了すると解放'
+                    : tab.step === 4 ? 'ポジション分析を完了すると解放'
+                    : tab.step === 5 ? '質問生成を完了すると解放'
+                    : tab.step === 6 ? '審査を完了すると解放'
+                    : ''
+                  : ''
+                : '';
+
               return (
                 <button
                   key={tab.id}
@@ -794,6 +872,7 @@ export default function Home() {
                     }
                   }}
                   disabled={!isUnlocked && !isPro}
+                  title={lockReason}
                   className={`py-3 text-sm border-b-2 transition-colors flex items-center gap-1 whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-stone-800 text-stone-800 font-medium'
@@ -821,7 +900,7 @@ export default function Home() {
           <div className="space-y-8">
             <div>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-stone-500 tracking-widest">STEP 1</p>
+                <p className="text-xs text-stone-500 tracking-widest">ステップ 1</p>
                 <button
                   onClick={fillSampleData}
                   className="text-xs text-teal-700 hover:text-teal-800 underline underline-offset-2"
@@ -831,24 +910,30 @@ export default function Home() {
               </div>
               <h2 className="text-base font-medium text-stone-800 mb-1">職務経歴</h2>
               <p className="text-sm text-stone-500 mb-4">経験・スキル・資格などを入力してください</p>
-              <textarea
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                className="w-full h-56 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
-                placeholder="【職歴】&#10;2022年4月 - 現在: 株式会社○○&#10;・Webアプリケーション開発&#10;・チームリーダーとして5名をマネジメント&#10;&#10;【スキル】&#10;JavaScript, React, Node.js..."
-              />
+              <div className="relative">
+                <textarea
+                  value={resumeText}
+                  onChange={(e) => setResumeText(e.target.value)}
+                  className="w-full h-56 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
+                  placeholder="【職歴】&#10;2022年4月 - 現在: 株式会社○○&#10;・Webアプリケーション開発&#10;・チームリーダーとして5名をマネジメント&#10;&#10;【スキル】&#10;JavaScript, React, Node.js..."
+                />
+                <span className="absolute bottom-2 right-3 text-xs text-stone-400">{resumeText.length}文字</span>
+              </div>
             </div>
 
             <div className="border-t border-stone-200 pt-8">
-              <p className="text-xs text-stone-500 tracking-widest mb-4">STEP 2</p>
+              <p className="text-xs text-stone-500 tracking-widest mb-4">ステップ 2</p>
               <h2 className="text-base font-medium text-stone-800 mb-1">求人情報</h2>
               <p className="text-sm text-stone-500 mb-4">応募先の求人内容を貼り付けてください</p>
-              <textarea
-                value={jobInfo}
-                onChange={(e) => setJobInfo(e.target.value)}
-                className="w-full h-40 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
-                placeholder="【企業名】株式会社テックイノベーション&#10;【職種】Webエンジニア&#10;【必須スキル】JavaScript, React"
-              />
+              <div className="relative">
+                <textarea
+                  value={jobInfo}
+                  onChange={(e) => setJobInfo(e.target.value)}
+                  className="w-full h-40 p-4 bg-white border border-stone-200 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-stone-400 resize-none"
+                  placeholder="【企業名】株式会社テックイノベーション&#10;【職種】Webエンジニア&#10;【必須スキル】JavaScript, React&#10;&#10;※ 求人サイトの募集要項をそのまま貼り付けてOK"
+                />
+                <span className="absolute bottom-2 right-3 text-xs text-stone-400">{jobInfo.length}文字</span>
+              </div>
             </div>
 
             {questionError && (
@@ -931,7 +1016,7 @@ export default function Home() {
                 {/* Selection Outlook */}
                 {quickDiagnosis.selectionOutlook && (
                   <section>
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">SELECTION OUTLOOK</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">選考通過の見通し</p>
                     
                     {/* グレードと総合スコア */}
                     <div className="bg-stone-800 text-white p-6 mb-6">
@@ -1065,7 +1150,7 @@ export default function Home() {
                 {/* Quick Advice */}
                 {quickDiagnosis.quickAdvice && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">QUICK ADVICE</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">今すぐやるべきこと</p>
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="bg-teal-50 p-4">
                         <p className="text-xs font-medium text-teal-700 mb-2">強み</p>
@@ -1097,7 +1182,7 @@ export default function Home() {
 
                 {/* ポジションの実態 */}
                 <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-3">POSITION REALITY</p>
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">ポジションの実態</p>
                   <p className="text-lg font-medium text-stone-800 mb-3">{quickDiagnosis.positionReality.title}</p>
                   <p className="text-sm text-stone-700 leading-relaxed">{quickDiagnosis.positionReality.summary}</p>
                 </section>
@@ -1105,7 +1190,7 @@ export default function Home() {
                 {/* 面接で確認されそうなポイント */}
                 {quickDiagnosis.interviewFocus && quickDiagnosis.interviewFocus.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">面接で確認されるポイント</p>
                     <p className="text-sm text-stone-600 mb-4">面接で確認されそうなポイント</p>
                     <div className="space-y-4">
                       {quickDiagnosis.interviewFocus.map((item, i) => (
@@ -1118,9 +1203,9 @@ export default function Home() {
                   </section>
                 )}
 
-                {/* NEXT STEP - ポジション分析へ */}
+                {/* 次のステップ - ポジション分析へ */}
                 <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
+                  <p className="text-xs text-stone-500 tracking-widest mb-4">次のステップ</p>
                   <p className="text-sm text-stone-600 mb-4">ポジションの詳細を分析して面接対策を進めましょう</p>
                   {!isPaid && (
                     <div className="bg-gradient-to-r from-amber-50 to-stone-50 border border-amber-100 p-4 mb-4">
@@ -1173,18 +1258,30 @@ export default function Home() {
                 </button>
               </div>
             ) : !positionAnalysis ? (
-              <div className="py-16 text-center">
+              <div className="py-12">
                 {positionError && (
-                  <p className="text-sm text-red-700 mb-4">{positionError}</p>
+                  <p className="text-sm text-red-700 mb-4 text-center">{positionError}</p>
                 )}
-                <p className="text-sm text-stone-600 mb-2">
-                  求人票の行間を読み解き、ポジションの実態を分析します
-                </p>
-                {resumeText.trim() && (
-                  <p className="text-xs text-stone-500 mb-6">
-                    あなたの経歴との接点も合わせて分析します
+                <div className="text-center mb-8">
+                  <p className="text-sm text-stone-600 mb-2">
+                    求人票の行間を読み解き、ポジションの実態を分析します
                   </p>
-                )}
+                  {resumeText.trim() && (
+                    <p className="text-xs text-stone-500 mb-2">
+                      あなたの経歴との接点も合わせて分析します
+                    </p>
+                  )}
+                </div>
+                <div className="bg-stone-50 border border-stone-200 p-5 mb-8 max-w-lg mx-auto">
+                  <p className="text-xs text-stone-500 font-medium mb-3">この分析でわかること</p>
+                  <div className="space-y-2 text-sm text-stone-600">
+                    <p>・求人キーワードの裏にある企業の本音<span className="text-stone-400">（「推進」= 今止まっている）</span></p>
+                    <p>・入社後に起こりうるリスクシナリオ</p>
+                    <p>・あなたの経歴とポジションの接合ポイント</p>
+                    <p>・面接で確認される可能性が高い質問の方向性</p>
+                  </div>
+                </div>
+                <div className="text-center">
                 <button
                   onClick={handlePositionAnalysis}
                   disabled={positionLoading}
@@ -1199,13 +1296,14 @@ export default function Home() {
                     'ポジションを分析する'
                   )}
                 </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-10">
 
                 {/* ポジションの実態 */}
                 <section>
-                  <p className="text-xs text-stone-500 tracking-widest mb-3">POSITION REALITY</p>
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">ポジションの実態</p>
                   <p className="text-lg font-medium text-stone-800 mb-3">{positionAnalysis.positionReality.title}</p>
                   <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.positionReality.summary}</p>
                     <div className="grid grid-cols-2 gap-6">
@@ -1305,7 +1403,7 @@ export default function Home() {
 
                 {/* 面接で見られるポイント */}
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">INTERVIEW FOCUS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">面接で確認されるポイント</p>
                     <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.interviewFocus.whatTheyReallyWant}</p>
                     
                     <div className="space-y-4 mb-6">
@@ -1364,7 +1462,7 @@ export default function Home() {
 
                   {/* 次のステップ誘導 */}
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">NEXT STEP</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">次のステップ</p>
                     <p className="text-sm text-stone-600 mb-4">分析結果をもとに、想定質問を生成しましょう</p>
                     <button
                       onClick={() => {
@@ -1734,7 +1832,7 @@ export default function Home() {
                 {/* 経歴書審査への誘導 */}
                 {resumeText.trim() && (
                   <section className="border-t border-stone-200 mt-8 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-3">NEXT STEP</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-3">次のステップ</p>
                     <p className="text-sm text-stone-600 mb-4">職務経歴書を採用担当者の視点で審査しましょう</p>
                     <button
                       onClick={() => {
@@ -1964,7 +2062,7 @@ export default function Home() {
 
                 {/* 市場評価へ進む */}
                 <section className="border-t border-stone-200 pt-8 mt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-3">NEXT STEP</p>
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">次のステップ</p>
                   <p className="text-sm text-stone-600 mb-4">最後に、あなたの市場価値を確認しましょう</p>
                   <button
                     onClick={() => {
@@ -2278,7 +2376,7 @@ export default function Home() {
             </a>
           </div>
           <p className="text-xs text-stone-400 text-center">
-            © 2025 InterviewCraft
+            © 2026 InterviewCraft
           </p>
         </div>
       </footer>
