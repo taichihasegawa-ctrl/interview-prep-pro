@@ -2093,11 +2093,36 @@ export default function Home() {
                   </section>
                 )}
 
+                {/* 添削案（全文） */}
+                {documentReview.reconstruction?.reconstructedVersion && (
+                  <section className="border-t border-stone-200 pt-8">
+                    <p className="text-xs text-stone-500 tracking-widest mb-2">添削案</p>
+                    <div className="bg-amber-50 border border-amber-200 p-4 mb-5">
+                      <p className="text-xs text-amber-800 font-medium mb-1">この添削案はAIによる提案です</p>
+                      <p className="text-xs text-amber-700">必ずご自身の言葉で調整してから提出してください。そのままコピーして使うと、面接時に齟齬が生まれるリスクがあります。</p>
+                    </div>
+                    <div className="bg-white border border-stone-200 p-6">
+                      <p className="text-sm text-stone-800 whitespace-pre-wrap leading-relaxed">{documentReview.reconstruction.reconstructedVersion}</p>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(documentReview.reconstruction.reconstructedVersion);
+                        }}
+                        className="text-xs text-stone-500 hover:text-stone-700 border border-stone-200 px-3 py-1.5 hover:bg-stone-50 transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2"/></svg>
+                        テキストをコピー
+                      </button>
+                    </div>
+                  </section>
+                )}
+
                 {/* 行レベルの修正 */}
                 {documentReview.reconstruction?.lineLevelRewrites && documentReview.reconstruction.lineLevelRewrites.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">修正箇所</p>
-                    <p className="text-sm text-stone-600 mb-4">改善のヒント（参考情報としてご活用ください）</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-2">修正箇所の詳細</p>
+                    <p className="text-xs text-stone-400 mb-4">上記の添削案で、どこをなぜ変えたかの内訳です</p>
                     <div className="space-y-4">
                       {documentReview.reconstruction.lineLevelRewrites.map((rewrite, i) => (
                         <div key={i} className="border border-stone-200">
