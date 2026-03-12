@@ -775,7 +775,7 @@ export default function Home() {
       {showPaywall && (
         <div className="fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-sm w-full p-6 border border-stone-200">
-            <p className="text-xs text-stone-500 tracking-widest mb-2">PREMIUM ANALYSIS</p>
+            <p className="text-xs text-stone-500 tracking-widest mb-2">プレミアム分析</p>
             <h3 className="text-lg font-medium text-stone-800 mb-3">詳細分析を利用する</h3>
             <p className="text-sm text-stone-600 leading-relaxed mb-4">
               ポジション分析・想定質問生成・市場評価の詳細版・PDFレポート出力が利用できます。
@@ -1043,8 +1043,9 @@ export default function Home() {
                 {/* Selection Outlook */}
                 {quickDiagnosis.selectionOutlook && (
                   <section>
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">選考通過の見通し</p>
-                    
+                    <p className="text-xs text-stone-500 tracking-widest mb-2">選考通過の見通し</p>
+                    <p className="text-xs text-stone-400 mb-4">判断基準：1,000人以上の面接経験から体系化した5軸評価フレームワーク</p>
+
                     {/* グレードと総合スコア */}
                     <div className="bg-stone-800 text-white p-6 mb-6">
                       <div className="flex items-center justify-between mb-4">
@@ -1116,7 +1117,8 @@ export default function Home() {
                     {/* 致命的なギャップ */}
                     {quickDiagnosis.selectionOutlook.criticalGaps && quickDiagnosis.selectionOutlook.criticalGaps.length > 0 && (
                       <div className="mt-6 bg-red-50 border border-red-200 p-4">
-                        <p className="text-xs font-medium text-red-700 mb-2">⚠️ 致命的なギャップ</p>
+                        <p className="text-xs font-medium text-red-700 mb-1">⚠️ 致命的なギャップ</p>
+                        <p className="text-xs text-red-500 mb-2">面接官が最終判断で重視するポイントに基づく指摘</p>
                         <ul className="space-y-1">
                           {quickDiagnosis.selectionOutlook.criticalGaps.map((gap, i) => (
                             <li key={i} className="text-sm text-red-700 flex items-start gap-2">
@@ -1142,13 +1144,32 @@ export default function Home() {
                         </ol>
                       </div>
                     )}
+
+                    {/* Xシェアボタン */}
+                    <div className="mt-6 pt-4 border-t border-stone-200">
+                      <button
+                        onClick={() => {
+                          const grade = quickDiagnosis.selectionOutlook?.grade || '';
+                          const score = quickDiagnosis.selectionOutlook?.totalScore || 0;
+                          const text = encodeURIComponent(
+                            `異業種転職の書類通過率を診断してみた → ${grade}判定 ${score}/100\n\n#面接対策 #異業種転職 #転職活動\nhttps://www.interviewcraft.jp`
+                          );
+                          window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'width=550,height=420');
+                        }}
+                        className="inline-flex items-center gap-2 text-sm text-stone-500 hover:text-stone-700 border border-stone-200 px-4 py-2 hover:bg-stone-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        結果をXでシェアする
+                      </button>
+                      <p className="text-xs text-stone-400 mt-1.5">スコアと判定のみシェアされます。個人情報は含まれません</p>
+                    </div>
                   </section>
                 )}
 
                 {/* 後方互換性: 旧形式のマッチスコア */}
                 {!quickDiagnosis.selectionOutlook && quickDiagnosis.matchScore !== undefined && (
                   <section>
-                    <p className="text-xs text-stone-500 tracking-widest mb-6">MATCH SCORE</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-6">マッチスコア</p>
                     <div className="flex items-center gap-8">
                       <div className="relative w-32 h-32">
                         <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
@@ -1178,7 +1199,7 @@ export default function Home() {
                 {quickDiagnosis.quickAdvice && (
                   <section className="border-t border-stone-200 pt-8">
                     <p className="text-xs text-stone-500 tracking-widest mb-4">今すぐやるべきこと</p>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div className="bg-teal-50 p-4">
                         <p className="text-xs font-medium text-teal-700 mb-2">強み</p>
                         <ul className="space-y-1">
@@ -1333,7 +1354,7 @@ export default function Home() {
                   <p className="text-xs text-stone-500 tracking-widest mb-3">ポジションの実態</p>
                   <p className="text-lg font-medium text-stone-800 mb-3">{positionAnalysis.positionReality.title}</p>
                   <p className="text-sm text-stone-700 leading-relaxed mb-6">{positionAnalysis.positionReality.summary}</p>
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <p className="text-xs text-stone-500 mb-2">想定される1日の業務</p>
                         <p className="text-sm text-stone-700 leading-relaxed">{positionAnalysis.positionReality.dayInLife}</p>
@@ -1348,7 +1369,7 @@ export default function Home() {
                 {/* 企業の課題と採用理由 */}
                 {positionAnalysis.hiddenContext && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">HIDDEN CONTEXT</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">企業の隠れた文脈</p>
                     <p className="text-sm text-stone-600 mb-6">求人票から読み取れる企業の状況</p>
                     
                     {/* 企業の課題 */}
@@ -1377,19 +1398,19 @@ export default function Home() {
                 {/* 後方互換：旧形式のreadBetweenLines */}
                 {!positionAnalysis.hiddenContext && positionAnalysis.readBetweenLines && positionAnalysis.readBetweenLines.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">READ BETWEEN THE LINES</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">求人票の行間を読む</p>
                     <p className="text-sm text-stone-600 mb-6">求人票の表現から読み取れること</p>
                     <div className="space-y-6">
                       {positionAnalysis.readBetweenLines.map((item, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-4">
-                          <div className="col-span-4">
+                        <div key={i} className="flex flex-col md:grid md:grid-cols-12 gap-2 md:gap-4">
+                          <div className="md:col-span-4">
                             <p className="text-xs text-stone-400 mb-1">求人票の記載</p>
                             <p className="text-sm text-stone-600 italic">&ldquo;{item.surface}&rdquo;</p>
                           </div>
-                          <div className="col-span-1 flex justify-center pt-4">
+                          <div className="hidden md:flex md:col-span-1 justify-center pt-4">
                             <ArrowRight className="w-4 h-4 text-stone-400" />
                           </div>
-                          <div className="col-span-7 border-l-2 border-teal-600 pl-4">
+                          <div className="md:col-span-7 border-l-2 border-teal-600 pl-4">
                             <p className="text-xs text-stone-400 mb-1">読み解き</p>
                             <p className="text-sm text-stone-700 leading-relaxed">{item.insight}</p>
                           </div>
@@ -1402,7 +1423,7 @@ export default function Home() {
                 {/* 地雷シナリオ */}
                 {positionAnalysis.riskScenarios && positionAnalysis.riskScenarios.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">RISK SCENARIOS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">リスクシナリオ</p>
                     <p className="text-sm text-stone-600 mb-6">入社後に起こりうるリスクと確認ポイント</p>
                     
                     <div className="space-y-6">
@@ -1454,20 +1475,20 @@ export default function Home() {
                   {/* あなたが活かせるポイント */}
                   {positionAnalysis.yourFit && (
                     <section className="border-t border-stone-200 pt-8">
-                      <p className="text-xs text-stone-500 tracking-widest mb-4">YOUR FIT</p>
+                      <p className="text-xs text-stone-500 tracking-widest mb-4">あなたとの適合度</p>
                       <p className="text-sm text-stone-600 mb-6">あなたの経歴とこのポジションの接点</p>
                       
                       <div className="space-y-6 mb-8">
                         {positionAnalysis.yourFit.strongConnections.map((conn, i) => (
-                          <div key={i} className="grid grid-cols-12 gap-4">
-                            <div className="col-span-4">
+                          <div key={i} className="flex flex-col md:grid md:grid-cols-12 gap-2 md:gap-4">
+                            <div className="md:col-span-4">
                               <p className="text-xs text-stone-400 mb-1">あなたの経験</p>
                               <p className="text-sm text-stone-700 font-medium">{conn.yourExperience}</p>
                             </div>
-                            <div className="col-span-1 flex justify-center pt-4">
+                            <div className="hidden md:flex md:col-span-1 justify-center pt-4">
                               <ArrowRight className="w-4 h-4 text-stone-400" />
                             </div>
-                            <div className="col-span-7 border-l-2 border-teal-600 pl-4">
+                            <div className="md:col-span-7 border-l-2 border-teal-600 pl-4">
                               <p className="text-xs text-stone-400 mb-1">このポジションでの活かし方</p>
                               <p className="text-sm text-stone-700 leading-relaxed">{conn.howItConnects}</p>
                             </div>
@@ -1521,10 +1542,12 @@ export default function Home() {
         {activeTab === 'questions' && (
           <div>
             {questions.length === 0 && !questionLoading ? (
-              <div className="py-16 text-center">
-                <p className="text-sm text-stone-600 mb-2">求人情報をもとに想定質問を生成します</p>
+              <div className="py-12">
+                <div className="text-center mb-8">
+                  <p className="text-sm text-stone-600 mb-2">求人情報とあなたの経歴をもとに想定質問を生成します</p>
+                </div>
                 {!jobInfo.trim() ? (
-                  <>
+                  <div className="text-center">
                     <p className="text-xs text-stone-500 mb-4">まず求人情報を入力してください</p>
                     <button
                       onClick={() => setActiveTab('prepare')}
@@ -1532,15 +1555,28 @@ export default function Home() {
                     >
                       準備タブへ
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <button
-                    onClick={handleGenerateQuestions}
-                    className="mt-4 bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors inline-flex items-center gap-2"
-                  >
-                    想定質問を生成する
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <>
+                    <div className="bg-stone-50 border border-stone-200 p-5 mb-8 max-w-lg mx-auto">
+                      <p className="text-xs text-stone-500 font-medium mb-3">生成される質問の特徴</p>
+                      <div className="space-y-2 text-sm text-stone-600">
+                        <p>・採用リスクに基づいた実践的な質問</p>
+                        <p>・PREP/STARフレームワーク付きの模範回答</p>
+                        <p>・面接官の意図と確認したいリスクの解説</p>
+                        <p>・NGパターンとフォローアップ質問の想定</p>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <button
+                        onClick={handleGenerateQuestions}
+                        className="bg-stone-800 text-white px-8 py-3 text-sm font-medium hover:bg-stone-700 transition-colors inline-flex items-center gap-2"
+                      >
+                        想定質問を生成する
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             ) : questionLoading ? (
@@ -1554,9 +1590,9 @@ export default function Home() {
                 {/* 採用リスク分析セクション */}
                 {riskAnalysis && (
                   <section className="bg-stone-50 border border-stone-200 p-6">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">RISK ANALYSIS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">採用リスク分析</p>
                     <p className="text-sm text-stone-600 mb-4">面接官が確認したいポイント</p>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {riskAnalysis.skillGaps.length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-amber-700 mb-2">スキルギャップ</p>
@@ -1819,7 +1855,7 @@ export default function Home() {
                               <span className="text-sm text-stone-600">{feedbacks[i].scoreComment}</span>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <p className="text-xs text-stone-500 mb-2">良かった点</p>
                                 <ul className="space-y-1">
@@ -1908,10 +1944,22 @@ export default function Home() {
                 {reviewError && (
                   <p className="text-sm text-red-700 mb-4">{reviewError}</p>
                 )}
-                <p className="text-xs text-stone-500 tracking-widest mb-2">HIRING MANAGER&apos;S VIEW</p>
-                <p className="text-sm text-stone-600 mb-6">
-                  採用担当者の視点で職務経歴書を審査します
-                </p>
+                <div className="text-center mb-8">
+                  <p className="text-xs text-stone-500 tracking-widest mb-2">採用担当者の視点</p>
+                  <p className="text-sm text-stone-600">
+                    採用担当者の視点で職務経歴書を2段階で審査します
+                  </p>
+                </div>
+                <div className="bg-stone-50 border border-stone-200 p-5 mb-8 max-w-lg mx-auto">
+                  <p className="text-xs text-stone-500 font-medium mb-3">審査でわかること</p>
+                  <div className="space-y-2 text-sm text-stone-600">
+                    <p>・6項目のスコアカード<span className="text-stone-400">（スコープ明確性・KPI可視性・因果関係 等）</span></p>
+                    <p>・致命的な問題点と具体的な改善方向</p>
+                    <p>・行レベルのビフォー/アフター修正提案</p>
+                    <p>・より精度を上げるための追加質問</p>
+                  </div>
+                </div>
+                <div className="text-center">
                 <button
                   onClick={handleDocumentReview}
                   disabled={reviewLoading}
@@ -1926,12 +1974,13 @@ export default function Home() {
                     '審査を開始する'
                   )}
                 </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-10">
                 {/* 総合評価 */}
                 <section>
-                  <p className="text-xs text-stone-500 tracking-widest mb-3">HIRING MANAGER&apos;S VIEW</p>
+                  <p className="text-xs text-stone-500 tracking-widest mb-3">採用担当者の視点</p>
                   <div className="bg-stone-800 text-white p-6">
                     <p className="text-sm leading-relaxed mb-4">{documentReview.diagnosis.diagnosis.overallAssessment}</p>
                     <div className="flex items-center gap-4">
@@ -1953,7 +2002,7 @@ export default function Home() {
                 {/* リスクポイント */}
                 {documentReview.diagnosis.diagnosis.riskPoints.length > 0 && (
                   <section>
-                    <p className="text-xs text-stone-500 tracking-widest mb-3">RISK POINTS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-3">リスクポイント</p>
                     <p className="text-sm text-stone-600 mb-4">採用側が懸念する可能性のある点</p>
                     <ul className="space-y-2">
                       {documentReview.diagnosis.diagnosis.riskPoints.map((risk, i) => (
@@ -1967,8 +2016,9 @@ export default function Home() {
 
                 {/* スコアカード */}
                 <section className="border-t border-stone-200 pt-8">
-                  <p className="text-xs text-stone-500 tracking-widest mb-4">SCORECARD</p>
-                  <div className="grid grid-cols-2 gap-4">
+                  <p className="text-xs text-stone-500 tracking-widest mb-2">スコアカード</p>
+                  <p className="text-xs text-stone-400 mb-4">判断基準：採用担当者が書類選考で確認する6項目を5段階評価</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       { key: 'scopeClarity', label: 'スコープ明確性', desc: '任せられる範囲が明確か' },
                       { key: 'kpiVisibility', label: 'KPI可視性', desc: '成果指標が見えるか' },
@@ -2013,7 +2063,7 @@ export default function Home() {
                 {/* 致命的な問題点 */}
                 {documentReview.diagnosis.criticalIssues.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">CRITICAL ISSUES</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">重要な問題点</p>
                     <div className="space-y-4">
                       {documentReview.diagnosis.criticalIssues.map((issue, i) => (
                         <div key={i} className={`border-l-4 ${
@@ -2046,18 +2096,18 @@ export default function Home() {
                 {/* 行レベルの修正 */}
                 {documentReview.reconstruction?.lineLevelRewrites && documentReview.reconstruction.lineLevelRewrites.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">LINE-BY-LINE CHANGES</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">修正箇所</p>
                     <p className="text-sm text-stone-600 mb-4">改善のヒント（参考情報としてご活用ください）</p>
                     <div className="space-y-4">
                       {documentReview.reconstruction.lineLevelRewrites.map((rewrite, i) => (
                         <div key={i} className="border border-stone-200">
-                          <div className="grid grid-cols-2">
-                            <div className="p-4 bg-red-50 border-r border-stone-200">
-                              <p className="text-xs text-red-600 mb-1">BEFORE</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2">
+                            <div className="p-4 bg-red-50 md:border-r border-b md:border-b-0 border-stone-200">
+                              <p className="text-xs text-red-600 mb-1">変更前</p>
                               <p className="text-sm text-stone-700 line-through">{rewrite.before}</p>
                             </div>
                             <div className="p-4 bg-teal-50">
-                              <p className="text-xs text-teal-600 mb-1">AFTER</p>
+                              <p className="text-xs text-teal-600 mb-1">変更後</p>
                               <p className="text-sm text-stone-800">{rewrite.after}</p>
                             </div>
                           </div>
@@ -2073,7 +2123,7 @@ export default function Home() {
                 {/* 確認が必要な質問 */}
                 {documentReview.reconstruction?.clarificationNeeded && documentReview.reconstruction.clarificationNeeded.length > 0 && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-3">CLARIFICATION NEEDED</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-3">確認が必要な情報</p>
                     <p className="text-sm text-stone-600 mb-4">より精度の高い経歴書にするため、以下の情報があると効果的です</p>
                     <div className="space-y-3">
                       {documentReview.reconstruction.clarificationNeeded.map((item, i) => (
@@ -2136,9 +2186,21 @@ export default function Home() {
                 {marketError && (
                   <p className="text-sm text-red-700 mb-4">{marketError}</p>
                 )}
-                <p className="text-sm text-stone-600 mb-6">
-                  あなたの経歴を市場視点で分析します
-                </p>
+                <div className="text-center mb-8">
+                  <p className="text-sm text-stone-600">
+                    あなたの経歴を市場視点で分析します
+                  </p>
+                </div>
+                <div className="bg-stone-50 border border-stone-200 p-5 mb-8 max-w-lg mx-auto">
+                  <p className="text-xs text-stone-500 font-medium mb-3">市場評価でわかること</p>
+                  <div className="space-y-2 text-sm text-stone-600">
+                    <p>・想定年収レンジと中央値</p>
+                    <p>・需要と供給のバランス<span className="text-stone-400">（あなたの希少価値）</span></p>
+                    <p>・強み分析と成長領域の特定</p>
+                    <p>・キャリア方向性と年収ポテンシャル</p>
+                  </div>
+                </div>
+                <div className="text-center">
                 <button
                   onClick={handleMarketEvaluation}
                   disabled={marketLoading}
@@ -2153,13 +2215,14 @@ export default function Home() {
                     '市場評価を見る'
                   )}
                 </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-10">
                 {/* 年収推定（新しいロジック） */}
                 {marketEvaluation.salaryEstimate && (
                   <section>
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">SALARY ESTIMATE</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">年収推定</p>
                     <div className="bg-stone-800 text-white p-6 mb-6">
                       <div className="flex items-center justify-between">
                         <div>
@@ -2182,11 +2245,11 @@ export default function Home() {
                 {/* 市場価値（新形式） */}
                 {marketEvaluation.marketValue && (
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">MARKET VALUE</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">市場価値</p>
                     <p className="text-sm text-stone-800 leading-relaxed mb-6">{marketEvaluation.marketValue.summary}</p>
                     
                     {/* 需給レベル */}
-                    <div className="flex gap-6 mb-6">
+                    <div className="flex flex-col md:flex-row gap-3 md:gap-6 mb-6">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-stone-500">需要レベル:</span>
                         <span className={`text-sm font-medium ${
@@ -2209,7 +2272,7 @@ export default function Home() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <p className="text-xs text-stone-500 mb-3">即戦力として評価される点</p>
                         <ul className="space-y-2">
@@ -2240,11 +2303,11 @@ export default function Home() {
                 {marketEvaluation.marketView && !marketEvaluation.marketValue && (
                   <>
                     <section>
-                      <p className="text-xs text-stone-500 tracking-widest mb-3">MARKET VIEW</p>
+                      <p className="text-xs text-stone-500 tracking-widest mb-3">市場からの評価</p>
                       <p className="text-sm text-stone-800 leading-relaxed">{marketEvaluation.marketView.summary}</p>
                     </section>
 
-                    <section className="grid grid-cols-3 gap-6 border-t border-b border-stone-200 py-8">
+                    <section className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-b border-stone-200 py-8">
                       <div>
                         <p className="text-xs text-stone-500 mb-3">即戦力として評価されやすい経験</p>
                         <ul className="space-y-2">
@@ -2275,7 +2338,7 @@ export default function Home() {
 
                   {/* 強み（新旧両対応） */}
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">STRENGTHS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">強み分析</p>
                     <div className="space-y-4">
                       {['execution', 'continuity', 'problemSolving'].map((key) => {
                         const labels: Record<string, string> = { execution: '実行力', continuity: '継続性', problemSolving: '問題解決力' };
@@ -2295,7 +2358,7 @@ export default function Home() {
 
                   {/* 成長領域（新旧両対応） */}
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">GROWTH AREAS</p>
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">成長領域</p>
                     <p className="text-sm text-stone-600 mb-4">強化すると市場評価が上がりやすい領域</p>
                     <div className="space-y-4">
                       {['quantification', 'decisionMaking', 'crossFunctional'].map((key) => {
@@ -2316,8 +2379,8 @@ export default function Home() {
 
                   {/* キャリア方向（新旧両対応） */}
                   <section className="border-t border-stone-200 pt-8">
-                    <p className="text-xs text-stone-500 tracking-widest mb-4">CAREER DIRECTIONS</p>
-                    <div className="grid grid-cols-3 gap-6">
+                    <p className="text-xs text-stone-500 tracking-widest mb-4">キャリア方向性</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {marketEvaluation.careerDirections?.map((dir, i) => (
                         <div key={i}>
                           <p className="text-sm font-medium text-stone-800 mb-2">{dir.direction}</p>
@@ -2352,7 +2415,7 @@ export default function Home() {
                   <div className="bg-stone-50 border border-stone-200 p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-stone-500 tracking-widest mb-1">EXPORT</p>
+                        <p className="text-xs text-stone-500 tracking-widest mb-1">エクスポート</p>
                         <p className="text-sm font-medium text-stone-800">分析結果をPDFで保存</p>
                         <p className="text-xs text-stone-500 mt-1">
                           {[
