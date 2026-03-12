@@ -140,6 +140,7 @@ async function runDiagnosisForChunk(documentText: string, chunkIndex: number, to
 5. 判断の痕跡があるか
 6. 協業・調整の痕跡があるか
 7. 数値の妥当性はあるか
+8. 異業種可読性：候補者の業界を全く知らない採用担当者が読んでも理解できるか。業界固有の用語・略語・社内用語が説明なしに使われていないか。異業種からの転職を想定し、読み手が候補者の業界知識を持っていない前提で評価せよ。
 
 一般論は禁止。
 必ず入力文の具体箇所を引用して評価せよ。
@@ -173,7 +174,8 @@ ${jobInfo ? `# 志望先情報\n${jobInfo}` : ''}
     "causality": { "score": <0-5>, "evidence": "<根拠>" },
     "reproducibility": { "score": <0-5>, "evidence": "<根拠>" },
     "decisionEvidence": { "score": <0-5>, "evidence": "<根拠>" },
-    "collaborationEvidence": { "score": <0-5>, "evidence": "<根拠>" }
+    "collaborationEvidence": { "score": <0-5>, "evidence": "<根拠>" },
+    "crossIndustryReadability": { "score": <0-5>, "evidence": "<業界用語・略語・社内用語の使用状況と、異業種の読み手への配慮度>" }
   },
   "criticalIssues": [
     {
@@ -211,7 +213,7 @@ function mergeDiagnosisResults(results: object[]): object {
   const allRiskPoints = typedResults.flatMap(r => r.diagnosis?.riskPoints || []);
   
   // スコアを平均化
-  const scoreFields = ['scopeClarity', 'kpiVisibility', 'causality', 'reproducibility', 'decisionEvidence', 'collaborationEvidence'];
+  const scoreFields = ['scopeClarity', 'kpiVisibility', 'causality', 'reproducibility', 'decisionEvidence', 'collaborationEvidence', 'crossIndustryReadability'];
   const mergedScorecard: Record<string, { score: number; evidence: string }> = {};
   
   for (const field of scoreFields) {
@@ -264,6 +266,14 @@ async function runReconstruction(documentText: string, diagnosisResult: object, 
 抽象語は禁止。
 因果関係を明示せよ。
 数値・スコープ・再現要因を可能な限り補完せよ。
+
+【異業種可読性の改善】
+候補者は異業種転職を行う前提で再構築せよ。
+志望先の採用担当者は候補者の業界知識を持っていない。
+- 業界固有の用語・略語（例：CRR、MRR、チャーンレート等）は、初出時に括弧書きで平易な説明を添えるか、一般的なビジネス用語に置き換えよ
+- 社内用語・プロジェクト名は、何をするものかが伝わる一般名称に置き換えよ
+- 専門的なプロセスや手法は「何のためにやるのか」を一言添えよ
+- ただし、職種として共通の用語（例：KPI、PL、ROI等）はそのままでよい
 
 ただし、事実を捏造してはいけない。
 元の文章から読み取れる範囲で最大限具体化する。
@@ -344,7 +354,7 @@ export async function POST(req: NextRequest) {
       diagnosis: mergedDiagnosis,
       reconstruction: reconstructionResult,
       totalScore,
-      maxScore: 30,
+      maxScore: 35,
       chunksProcessed: chunks.length
     });
 

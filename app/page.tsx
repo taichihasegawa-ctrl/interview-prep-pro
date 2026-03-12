@@ -57,6 +57,7 @@ type Scorecard = {
   reproducibility: ScorecardItem;
   decisionEvidence: ScorecardItem;
   collaborationEvidence: ScorecardItem;
+  crossIndustryReadability: ScorecardItem;
 };
 
 type CriticalIssue = {
@@ -1987,13 +1988,13 @@ export default function Home() {
                       <span className="text-3xl font-bold">{documentReview.totalScore}</span>
                       <span className="text-stone-400">/ {documentReview.maxScore}点</span>
                       <span className={`px-3 py-1 text-xs font-medium ${
-                        documentReview.totalScore >= 24 ? 'bg-teal-600' :
-                        documentReview.totalScore >= 18 ? 'bg-stone-600' :
-                        documentReview.totalScore >= 12 ? 'bg-amber-600' : 'bg-red-600'
+                        documentReview.totalScore >= 28 ? 'bg-teal-600' :
+                        documentReview.totalScore >= 21 ? 'bg-stone-600' :
+                        documentReview.totalScore >= 14 ? 'bg-amber-600' : 'bg-red-600'
                       }`}>
-                        {documentReview.totalScore >= 24 ? '高評価' :
-                         documentReview.totalScore >= 18 ? '改善余地あり' :
-                         documentReview.totalScore >= 12 ? '要改善' : '大幅な改善が必要'}
+                        {documentReview.totalScore >= 28 ? '高評価' :
+                         documentReview.totalScore >= 21 ? '改善余地あり' :
+                         documentReview.totalScore >= 14 ? '要改善' : '大幅な改善が必要'}
                       </span>
                     </div>
                   </div>
@@ -2017,7 +2018,7 @@ export default function Home() {
                 {/* スコアカード */}
                 <section className="border-t border-stone-200 pt-8">
                   <p className="text-xs text-stone-500 tracking-widest mb-2">スコアカード</p>
-                  <p className="text-xs text-stone-400 mb-4">判断基準：採用担当者が書類選考で確認する6項目を5段階評価</p>
+                  <p className="text-xs text-stone-400 mb-4">判断基準：採用担当者が書類選考で確認する7項目を5段階評価</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       { key: 'scopeClarity', label: 'スコープ明確性', desc: '任せられる範囲が明確か' },
@@ -2026,6 +2027,7 @@ export default function Home() {
                       { key: 'reproducibility', label: '再現性', desc: '別環境でも再現可能か' },
                       { key: 'decisionEvidence', label: '判断の痕跡', desc: '意思決定の経験が見えるか' },
                       { key: 'collaborationEvidence', label: '協業の痕跡', desc: 'チームワークが見えるか' },
+                      { key: 'crossIndustryReadability', label: '異業種可読性', desc: '業界知識なしで理解できるか' },
                     ].map((item) => {
                       const scoreItem = documentReview.diagnosis.scorecard[item.key as keyof Scorecard];
                       return (
