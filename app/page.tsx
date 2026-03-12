@@ -2029,7 +2029,7 @@ export default function Home() {
                       { key: 'collaborationEvidence', label: '協業の痕跡', desc: 'チームワークが見えるか' },
                       { key: 'crossIndustryReadability', label: '異業種可読性', desc: '業界知識なしで理解できるか' },
                     ].map((item) => {
-                      const scoreItem = documentReview.diagnosis.scorecard[item.key as keyof Scorecard];
+                      const scoreItem = documentReview.diagnosis.scorecard[item.key as keyof Scorecard] || { score: 0, evidence: '—' };
                       return (
                         <div key={item.key} className="border border-stone-200 p-4">
                           <div className="flex items-center justify-between mb-2">
