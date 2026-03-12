@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const client = new Anthropic();
 
@@ -23,7 +24,9 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `あなたは採用責任者として1000人以上を面接してきた経験を持つ専門家です。
+          content: `${getPersonaForFeature('quick-diagnosis')}
+
+あなたは上記の人格と経験を持つ採用責任者として応答してください。
 
 ## 絶対遵守ルール
 - 感情評価禁止（「素晴らしい」「頑張っている」等）
@@ -57,7 +60,7 @@ ${jobInfo}
 - A（80点以上）: 書類通過率80%以上想定
 - B（60-79点）: 書類通過率50%程度
 - C（40-59点）: 書類通過率30%程度
-- D（40点未満）: 書類通過困難、要大幅改善
+- D（40点未渀）: 書類通過困難、要大幅改善
 
 ## 出力形式（JSON）
 
@@ -111,7 +114,7 @@ ${jobInfo}
   ],
   "quickAdvice": {
     "strengths": ["<即戦力として評価される点1>", "<点2>"],
-    "weaknesses": ["<懸念される点1>", "<点2>"],
+    "weaknesses": ["<懷念される点1>", "<点2>"],
     "keyMessage": "<面接で最も伝えるべき1つのメッセージ>"
   }
 }`
