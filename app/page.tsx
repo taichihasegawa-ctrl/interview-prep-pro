@@ -366,24 +366,51 @@ export default function Home() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quickAgents, setQuickAgents] = useState<MatchedAgent[]>([]);
 
-  // 決済状態の確認（URLパラメータのみ、ワンタイム課金）
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      // 管理者バイパス
-      if (params.get('key') === 'taichi2026pro') {
-        setIsPaid(true);
-        window.history.replaceState({}, '', window.location.pathname);
-        return;
-      }
-      // 通常の決済確認
-      if (params.get('payment') === 'success') {
-        setIsPaid(true);
-        // URLパラメータを即座に削除（URL保存による再利用を防止）
-        window.history.replaceState({}, '', window.location.pathname);
-      }
+  // 決済状態の確認（サーバーサイド検証）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+
+    // 管理者バイパス
+    if (params.get('key') === 'taichi2026pro') {
+      setIsPaid(true);
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
     }
-  });
+
+    // Stripe決済成功後のリダイレクト — session_idでサーバーサイド検証
+    const sessionId = params.get('session_id');
+    if (params.get('payment') === 'success' && sessionId) {
+      fetch(`/api/check-payment?sessionId=${sessionId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.isPaid) {
+            setIsPaid(true);
+            // 検証済みsessionIdをlocalStorageに保存（再訪問時用）
+            localStorage.setItem('interview-prep-pro-session', sessionId);
+          }
+        })
+        .catch(err => console.error('Payment check failed:', err));
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    // 再訪問時：保存済みsessionIdでサーバーサイド検証
+    const savedSession = localStorage.getItem('interview-prep-pro-session');
+    if (savedSession) {
+      fetch(`/api/check-payment?sessionId=${savedSession}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.isPaid) {
+            setIsPaid(true);
+          } else {
+            // 無効なセッションは削除
+            localStorage.removeItem('interview-prep-pro-session');
+          }
+        })
+        .catch(err => console.error('Payment recheck failed:', err));
+    }
+  }, []);
 
   // ===== localStorage 保存・復元 =====
   const STORAGE_KEY = 'interview-prep-pro-data';
