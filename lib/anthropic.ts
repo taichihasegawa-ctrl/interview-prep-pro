@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -14,37 +15,39 @@ export async function generateQuestions(params: {
   const { jobInfo, resumeText, questionCount, interviewType, answerLength } = params;
 
   const lengthMap: Record<string, string> = {
-    short: '150-200文字',
-    medium: '200-300文字',
-    long: '300-400文字',
+    short: '150-200æå­',
+    medium: '200-300æå­',
+    long: '300-400æå­',
   };
 
   const typeMap: Record<string, string> = {
-    balanced: '技術と人物面接をバランスよく',
-    technical: '技術的な質問を中心に',
-    behavioral: '行動・経験の質問を中心に',
-    executive: '経営・リーダーシップの質問を中心に',
+    balanced: 'æè¡ã¨äººç©é¢æ¥ããã©ã³ã¹ãã',
+    technical: 'æè¡çãªè³ªåãä¸­å¿ã«',
+    behavioral: 'è¡åã»çµé¨ã®è³ªåãä¸­å¿ã«',
+    executive: 'çµå¶ã»ãªã¼ãã¼ã·ããã®è³ªåãä¸­å¿ã«',
   };
 
-  const prompt = `あなたは経験豊富な採用コンサルタントです。以下の情報から面接で聞かれる可能性が高い質問を${questionCount}個生成し、それぞれに対する効果的な模範解答を作成してください。
+  const prompt = `${getPersonaForFeature('generate-questions')}
 
-# 求人情報
+ããªãã¯ä¸è¨ã®äººæ ¼ã¨çµé¨ãæã¤æ¡ç¨ã³ã³ãµã«ã¿ã³ãã§ããä»¥ä¸ã®æå ±ããé¢æ¥ã§èãããå¯è½æ§ãé«ãè³ªåã${questionCount}åçæããããããã«å¯¾ããå¹æçãªæ¨¡ç¯è§£ç­ãä½æãã¦ãã ããã
+
+# æ±äººæå ±
 ${jobInfo}
 
-${resumeText ? `# 履歴書・職務経歴書\n${resumeText}` : ''}
+${resumeText ? `# å±¥æ­´æ¸ã»è·åçµæ­´æ¸\n${resumeText}` : ''}
 
-# 条件
+# æ¡ä»¶
 - ${typeMap[interviewType] || typeMap.balanced}
-- 回答は${lengthMap[answerLength] || lengthMap.medium}程度で作成
-- 模範解答は具体的なエピソードや数字を含め、STAR法（状況・課題・行動・結果）を意識した構成にしてください
+- åç­ã¯${lengthMap[answerLength] || lengthMap.medium}ç¨åº¦ã§ä½æ
+- æ¨¡ç¯è§£ç­ã¯å·ä½çãªã¨ãã½ã¼ããæ°å­ãå«ããSTARæ³ï¼ç¶æ³ã»èª²é¡ã»è¡åã»çµæï¼ãæè­ããæ§æã«ãã¦ãã ãã
 
-# 出力形式（JSON）
+# åºåå½¢å¼ï¼JSONï¼
 {
   "questions": [
     {
-      "question": "質問文",
-      "answer": "模範解答",
-      "category": "カテゴリ（自己紹介/志望動機/スキル/経験 のいずれか）"
+      "question": "è³ªåæ",
+      "answer": "æ¨¡ç¯è§£ç­",
+      "category": "ã«ãã´ãªï¼èªå·±ç´¹ä»/å¿æåæ©/ã¹ã­ã«/çµé¨ ã®ããããï¼"
     }
   ]
 }`;
@@ -75,105 +78,107 @@ export async function correctDocument(params: {
   const { documentText, focus, jobInfo, positionAnalysis } = params;
 
   const focusMap: Record<string, string> = {
-    overall: '総合的な視点で添削',
-    impact: 'インパクト・説得力の向上を重視',
-    clarity: '明確性・読みやすさの改善を重視',
-    achievement: '実績の数値化・具体化を重視',
-    keywords: '業界キーワードの最適化を重視',
+    overall: 'ç·åçãªè¦ç¹ã§æ·»å',
+    impact: 'ã¤ã³ãã¯ãã»èª¬å¾åã®åä¸ãéè¦',
+    clarity: 'æç¢ºæ§ã»èª­ã¿ãããã®æ¹åãéè¦',
+    achievement: 'å®ç¸¾ã®æ°å¤åã»å·ä½åãéè¦',
+    keywords: 'æ¥­çã­ã¼ã¯ã¼ãã®æé©åãéè¦',
   };
 
-  // ポジション分析のコンテキストを構築
+  // ãã¸ã·ã§ã³åæã®ã³ã³ãã­ã¹ããæ§ç¯
   let positionContext = '';
   if (positionAnalysis) {
     const pa = positionAnalysis as Record<string, unknown>;
     const parts: string[] = [];
 
     if (pa.positionTitle) {
-      parts.push(`■ ポジション名: ${pa.positionTitle}`);
+      parts.push(`â  ãã¸ã·ã§ã³å: ${pa.positionTitle}`);
     }
     if (pa.realityDescription) {
-      parts.push(`■ ポジションの実態: ${pa.realityDescription}`);
+      parts.push(`â  ãã¸ã·ã§ã³ã®å®æ: ${pa.realityDescription}`);
     }
     if (pa.dailyImage) {
-      parts.push(`■ 想定される1日の業務: ${pa.dailyImage}`);
+      parts.push(`â  æ³å®ããã1æ¥ã®æ¥­å: ${pa.dailyImage}`);
     }
     if (pa.interviewFocusSummary) {
-      parts.push(`■ 面接で見られるポイント: ${pa.interviewFocusSummary}`);
+      parts.push(`â  é¢æ¥ã§è¦ããããã¤ã³ã: ${pa.interviewFocusSummary}`);
     }
     if (Array.isArray(pa.keyQualities) && pa.keyQualities.length > 0) {
       const qualities = (pa.keyQualities as { quality: string; reason: string }[])
-        .map(q => `・${q.quality}（${q.reason}）`)
+        .map(q => `ã»${q.quality}ï¼${q.reason}ï"`)
         .join('\n');
-      parts.push(`■ 重視される資質:\n${qualities}`);
+      parts.push(`â  éè¦ãããè³è³ª:\n${qualities}`);
     }
     if (pa.possibleConcerns) {
-      parts.push(`■ 採用側が持ちうる懸念: ${pa.possibleConcerns}`);
+      parts.push(`â  æ¡ç¨å´ãæã¡ããæ¸å¿µ: ${pa.possibleConcerns}`);
     }
     if (Array.isArray(pa.betweenTheLines) && pa.betweenTheLines.length > 0) {
       const lines = (pa.betweenTheLines as { written: string; reading: string }[])
-        .map(b => `・「${b.written}」→ ${b.reading}`)
+        .map(b => `ã»ã${b.written}ãâ ${b.reading}`)
         .join('\n');
-      parts.push(`■ 求人の行間:\n${lines}`);
+      parts.push(`â  æ±äººã®è¡é:\n${lines}`);
     }
     if (Array.isArray(pa.fitPoints) && pa.fitPoints.length > 0) {
       const fits = (pa.fitPoints as { experience: string; application: string }[])
-        .map(f => `・${f.experience} → ${f.application}`)
+        .map(f => `ã»${f.experience} â ${f.application}`)
         .join('\n');
-      parts.push(`■ 活かせるポイント:\n${fits}`);
+      parts.push(`â  æ´»ããããã¤ã³ã:\n${fits}`);
     }
     if (pa.gapToCover) {
-      parts.push(`■ 面接で補うべきギャップ: ${pa.gapToCover}`);
+      parts.push(`â  é¢æ¥ã§è£ãã¹ãã®ã£ãã: ${pa.gapToCover}`);
     }
 
     if (parts.length > 0) {
       positionContext = `
 
-# ポジション分析の結果（この分析を踏まえて添削してください）
+# ãã¸ã·ã§ã³åæã®çµæï¼ãã®åæãè¸ã¾ãã¦æ·»åãã¦ãã ããï¼
 ${parts.join('\n\n')}`;
     }
   }
 
-  // 求人情報のコンテキスト
+  // æ±äººæå ±ã®ã³ã³ãã­ã¹ã
   let jobContext = '';
   if (jobInfo && jobInfo.trim()) {
     jobContext = `
 
-# 応募先の求人情報
+# å¿ååã®æ±äººæå ±
 ${jobInfo}`;
   }
 
   const hasPositionAnalysis = positionContext.length > 0;
 
-  const prompt = `あなたは経験豊富なキャリアアドバイザーです。以下の履歴書・職務経歴書を${focusMap[focus] || focusMap.overall}してください。
+  const prompt = `${getPersonaForFeature('correct-document')}
+
+ããªãã¯ä¸è¨ã®äººæ ¼ã¨çµé¨ãæã¤ã­ã£ãªã¢ã¢ããã¤ã¶ã¼ã§ããä»¥ä¸ã®å±¥æ­´æ¸ã»è·åçµæ­´æ¸ã${focusMap[focus] || focusMap.overall}ãã¦ãã ããã
 ${hasPositionAnalysis ? `
-【重要な添削方針】
-ポジション分析の結果が提供されています。以下の観点を必ず添削に反映してください：
-1. このポジションで「面接官が本当に確認したいこと」に応える記載になっているか
-2. 重視される資質を経歴の中で十分にアピールできているか
-3. 採用側が持ちうる懸念を、経歴の書き方で先回りして払拭できているか
-4. 求人の行間（実態）を踏まえた、的確なキーワードや表現が使われているか
-5. 活かせるポイントが明確に伝わる書き方になっているか
+ãéè¦ãªæ·»åæ¹éã
+ãã¸ã·ã§ã³åæã®çµæãæä¾ããã¦ãã¾ããä»¥ä¸ã®è¦³ç¹ãå¿ãæ·»åã«åæ ãã¦ãã ããï¼
+1. ãã®ãã¸ã·ã§ã³ã§ãé¢æ¥å®ãæ¬å½ã«ç¢ºèªããããã¨ãã«å¿ããè¨è¼ã«ãªã£ã¦ããã
+2. éè¦ãããè³è³ªãçµæ­´ã®ä¸­ã§ååã«ã¢ãã¼ã«ã§ãã¦ããã
+3. æ¡ç¨å´ãæã¡ããæ¸å¿µããçµæ­´ã®æ¸ãæ¹ã§ååããã¦ææ­ã§ãã¦ããã
+4. æ±äººã®è¡éï¼å®æï¼ãè¸ã¾ãããçç¢ºãªã­ã¼ã¯ã¼ããè¡¨ç¾ãä½¿ããã¦ããã
+5. æ´»ããããã¤ã³ããæç¢ºã«ä¼ããæ¸ãæ¹ã«ãªã£ã¦ããã
 ` : ''}
-# 対象文書
+# å¯¾è±¡ææ¸
 ${documentText}
 ${jobContext}${positionContext}
 
-# 出力形式（JSON）
+# åºåå½¢å¼ï¼JSONï¼
 {
-  "summary": "総合評価（2-3文で簡潔に${hasPositionAnalysis ? '。ポジション分析を参照した場合はその観点も含める' : ''}）",
-  "strengths": ["強みのポイント1", "強みのポイント2", "強みのポイント3"],
+  "summary": "ç·åè©ä¾¡ï¼2-3æã§ç°¡æ½ã«${hasPositionAnalysis ? 'ããã¸ã·ã§ã³åæãåç§ããå ´åã¯ãã®è¦³ç¹ãå«ãã' : ''}ï¼",
+  "strengths": ["å¼·ã¿ã®ãã¤ã³ã1", "å¼·ã¿ã®ãã¤ã³ã2", "å¼·ã¿ã®ãã¤ã³ã3"],
   "corrections": [
     {
-      "type": "改善タイプ（例：表現の改善、数値化、具体化${hasPositionAnalysis ? '、ポジション適合性の強化' : ''}など）",
-      "before": "改善前の文章",
-      "after": "改善後の文章",
-      "reason": "なぜこの改善が必要か${hasPositionAnalysis ? '（ポジション分析との関連も記載）' : ''}"
+      "type": "æ¹åã¿ã¤ãï¼ä¾ï¼è¡¨ç¾ã®æ¹åãæ°å¤åãå·ä½å${hasPositionAnalysis ? 'ããã¸ã·ã§ã³é©åæ§ã®å¼·å' : ''}ãªã©ï¼",
+      "before": "æ¹ååã®æç« ",
+      "after": "æ¹åå¾ã®æç« ",
+      "reason": "ãªããã®æ¹åãå¿è¦ã${hasPositionAnalysis ? 'ï¼ãã¸ã·ã§ã³åæã¨ã®é¢é£ãè¨è¼ï¼' : ''}"
     }
   ],
-  "suggestions": ["さらなる改善提案1", "さらなる改善提案2"]
+  "suggestions": ["ãããªãæ¹åææ¡1", "ãããªãæ¹åææ¡2"]
 }
 
-具体的な改善提案を5-10個程度含めてください。${hasPositionAnalysis ? 'ポジション分析の結果を踏まえた改善提案を優先的に含めてください。' : ''}`;
+å·ä½çãªæ¹åææ¡ã5-10åç¨åº¦å«ãã¦ãã ããã${hasPositionAnalysis ? 'ãã¸ã·ã§ã³åæã®çµæãè¸ã¾ããæ¹åææ¡ãåªåçã«å«ãã¦ãã ããã' : ''}`;
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
