@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -17,7 +18,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `あなたは経験豊富な面接官です。以下の面接回答を評価してください。
+    const prompt = `${getPersonaForFeature('practice-feedback')}
+
+あなたは上記の人格と経験を持つ面接官です。以下の面接回答を評価してください。
 
 # 質問
 ${question}
