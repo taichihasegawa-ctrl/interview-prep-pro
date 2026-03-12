@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const client = new Anthropic();
 
@@ -23,12 +24,14 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `あなたは転職市場データに基づき、職務経歴書から現実的な年収レンジを算出する専門アナリストです。
+          content: `${getPersonaForFeature('market-evaluation')}
+
+あなたは上記の人格と経験を持つ、転職市場データに基づき職務経歴書から現実的な年収レンジを算出する専門アナリストです。
 
 ## 絶対遵守ルール
 - 感情評価禁止
 - 主観表現禁止
-- 数値根拠必須
+- 数値根拠必頡
 - 甘い励まし禁止
 - 過度なポジティブ推定禁止
 - 上場企業役員クラスでない限り1500万円超を出さない
@@ -62,12 +65,12 @@ ${resumeText}
 ■ マネジメント経験
 - チームリード（3名以上）：+5%
 - 管理職（5名以上）：+10%
-- 部門責任者：+15%
+- 部門責任者；+15%
 
 ■ 成果定量性
 - 定量実績なし：-5%
 - 売上○%改善など数値あり：+5%
-- KGI/KPIレベルで再現性高い：+10%
+- KGI/KPIレベルで再班性高い：+10%
 
 ■ 市場需要補正
 - AI/IT/DX関連：+10%
@@ -86,7 +89,7 @@ ${resumeText}
 - 中小/ベンチャー：-10%
 
 ### ③ 算出式
-想定中央値 = ベース中央値 × (1 + 補正合計%)
+想定亭央値 = ベース中央値 × (1 + 補正合計%)
 想定レンジ = 中央値 ± 15%
 
 ## 出力形式（JSON）
@@ -172,7 +175,7 @@ ${resumeText}
       "direction": "<キャリア方向性1>",
       "salaryPotential": "<この方向での年収ポテンシャル>",
       "requiredSteps": ["<必要なステップ1>", "<ステップ2>"],
-      "relevantIndustries": ["<業界1>", "<業界2>"]
+      "relevantIndustries": ["<業琌1>", "<業界2>"]
     },
     {
       "direction": "<キャリア方向性2>",
@@ -191,7 +194,7 @@ ${resumeText}
     "totalExperience": "<総経験年数>",
     "currentLevel": "<ジュニア | ミドル | シニア | マネージャー>",
     "primarySkills": ["<主要スキル1>", "<スキル2>", "<スキル3>"],
-    "industries": ["<経験業界1>", "<業界2>"],
+    "industries": ["<経験業琌1>", "<業界2>"],
     "uniqueValue": "<この候補者のユニークな価値を1文で>"
   }
 }`
