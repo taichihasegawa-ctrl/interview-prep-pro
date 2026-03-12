@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const client = new Anthropic();
 
@@ -118,7 +119,9 @@ async function runDiagnosisForChunk(documentText: string, chunkIndex: number, to
     messages: [
       {
         role: 'user',
-        content: `あなたは外資テック企業でHiring Managerを務めてきた。
+        content: `${getPersonaForFeature('correct-document')}
+
+あなたは上記の人格と経験を持つ、外資テック企業でHiring Managerを務めてきたプロフェッショナルだ。
 これまで1000人以上を面接し、通過率は5%未満。
 
 あなたの役割は文章を綺麗にすることではない。
@@ -251,7 +254,9 @@ async function runReconstruction(documentText: string, diagnosisResult: object, 
     messages: [
       {
         role: 'user',
-        content: `あなたは採用側視点で職務経歴書を再構築する専門家です。
+        content: `${getPersonaForFeature('correct-document')}
+
+あなたは上記の人格と経験を持つ、採用側視点で職務経歴書を再構築する専門家です。
 
 目的は、診断結果で指摘されたリスクをすべて潰し、
 「任せられる」と判断されやすい構造に再構築すること。
