@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getPersonaForFeature } from '@/lib/taichi-persona';
 
 const client = new Anthropic();
 
@@ -69,7 +70,9 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `あなたは採用面接の専門家です。求人票と職務経歴書を分析し、面接で聞かれる質問と模範解答を生成してください。
+          content: `${getPersonaForFeature('generate-questions')}
+
+あなたは上記の人格と経験を持つ採用面接の専門家です。求人票と職務経歴書を分析し、面接で聞かれる質問と模範解答を生成してください。
 
 ## 絶対遵守ルール
 - 感情評価禁止
